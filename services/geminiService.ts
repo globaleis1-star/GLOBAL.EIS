@@ -2,7 +2,8 @@
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import { VisaRequestParams, VisaInfoResponse, GroundingChunk } from "../types";
 
-const apiKey = process.env.API_KEY || '';
+const apiKey = import.meta.env.VITE_API_KEY || '';
+
 const genAI = new GoogleGenerativeAI(apiKey);
 const ai = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
 
