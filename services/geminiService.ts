@@ -1,12 +1,8 @@
 
-import { GoogleGenerativeAI } from "@google/generative-ai";
+import { GoogleGenAI } from "@google/genai";
 import { VisaRequestParams, VisaInfoResponse, GroundingChunk } from "../types";
 
-const apiKey = import.meta.env.VITE_API_KEY || '';
-
-const genAI = new GoogleGenerativeAI(apiKey);
-const ai = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
-
+const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
 // --- CONSTANTS & TEMPLATES ---
 
@@ -264,19 +260,16 @@ const VISA_RULES: Record<string, string> = {
 
 export const getVisaRequirements = async (params: VisaRequestParams): Promise<VisaInfoResponse> => {
   try {
-    const model = 'gemini-3-pro-preview';
-    
     // Get current date for context
     const today = new Date().toLocaleDateString('ar-EG', { year: 'numeric', month: 'long', day: 'numeric' });
 
     // Country Specific Overrides
     const destCode = params.destination.code;
-    const originCode = params.origin.code;
     
     // Retrieve rules from dictionary or empty string
     let specialInstructions = VISA_RULES[destCode] || "";
 
-    // Specific Override for Mexico (to ensure the Canada rule + specific rule merge if keys overlap, though here I separated them)
+    // Specific Override for Mexico
     if (destCode === 'MX' && VISA_RULES['MX_SPECIFIC']) {
         // MX already has the Canada rule, no need to append, but if we had separate logic:
         // specialInstructions += VISA_RULES['MX_SPECIFIC'];
@@ -352,7 +345,7 @@ export const getVisaRequirements = async (params: VisaRequestParams): Promise<Vi
     `;
 
     const response = await ai.models.generateContent({
-      model,
+      model: 'gemini-3-pro-preview',
       contents: prompt,
       config: {
         tools: [{ googleSearch: {} }],
@@ -362,16 +355,18 @@ export const getVisaRequirements = async (params: VisaRequestParams): Promise<Vi
 
     const markdown = response.text || "عذراً، لم أتمكن من العثور على المعلومات المطلوبة بدقة. يرجى مراجعة السفارة مباشرة.";
     
-    const groundingChunks = response.candidates?.[0]?.groundingMetadata?.groundingChunks as GroundingChunk[] | undefined;
+    // Extract grounding chunks from the response to build sources
+    // @ts-ignore - GroundingChunk typing might vary, casting to unknown then custom type if needed
+    const groundingChunks = response.candidates?.[0]?.groundingMetadata?.groundingChunks;
     
     const sources = groundingChunks
-      ?.filter(chunk => chunk.web?.uri && chunk.web?.title)
-      .map(chunk => ({
+      ?.filter((chunk: any) => chunk.web?.uri && chunk.web?.title)
+      .map((chunk: any) => ({
         title: chunk.web!.title,
         url: chunk.web!.uri
       })) || [];
 
-    const uniqueSources = Array.from(new Map(sources.map(item => [item.url, item])).values());
+    const uniqueSources = Array.from(new Map(sources.map((item: any) => [item.url, item])).values()) as { title: string; url: string }[];
 
     const result: VisaInfoResponse = {
       markdown,
@@ -404,7 +399,6 @@ export interface BankAnalysisResult {
 
 export const analyzeBankStatement = async (fileBase64: string, mimeType: string): Promise<BankAnalysisResult> => {
   try {
-    const model = 'gemini-3-pro-preview';
     const prompt = `
       **ROLE**: You are a UK Visa Entry Clearance Officer (ECO) and Financial Auditor.
       **TASK**: Analyze the provided bank statement image/PDF for a Standard Visitor Visa application.
@@ -437,8 +431,8 @@ export const analyzeBankStatement = async (fileBase64: string, mimeType: string)
     `;
 
     const response = await ai.models.generateContent({
-      model,
-      contents: [{
+      model: 'gemini-3-pro-preview',
+      contents: {
         parts: [
           { text: prompt },
           {
@@ -448,7 +442,7 @@ export const analyzeBankStatement = async (fileBase64: string, mimeType: string)
             }
           }
         ]
-      }],
+      },
       config: {
         responseMimeType: 'application/json',
         thinkingConfig: { thinkingBudget: 32768 },
