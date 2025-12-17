@@ -1,12 +1,12 @@
 
 import { GoogleGenerativeAI } from "@google/generative-ai";
-
 import { VisaRequestParams, VisaInfoResponse, GroundingChunk } from "../types";
-
+const apiKey = import.meta.env.VITE_API_KEY || '';
+if (!apiKey) {
+  console.error("API Key is missing! Please check your .env file or Vercel settings.");
+}
 const genAI = new GoogleGenerativeAI(apiKey);
 
-
-// --- CONSTANTS & TEMPLATES ---
 
 const CANADA_VISA_EXEMPTIONS = `
 **⚡ IMPORTANT NOTE: VALID CANADIAN VISA HOLDERS EXEMPTIONS**
