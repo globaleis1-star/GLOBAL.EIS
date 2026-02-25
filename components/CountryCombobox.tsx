@@ -9,9 +9,8 @@ interface CountryComboboxProps {
   selectedCountry: Country | null;
   onSelect: (country: Country) => void;
   placeholder?: string;
+  type?: 'origin' | 'destination';
 }
-
-// --- Fuzzy Search Helpers ---
 
 const normalizeText = (text: string): string => {
   return text
@@ -28,23 +27,15 @@ const normalizeText = (text: string): string => {
 const levenshteinDistance = (a: string, b: string): number => {
   if (a.length === 0) return b.length;
   if (b.length === 0) return a.length;
-
   const matrix = Array(b.length + 1).fill(null).map(() => Array(a.length + 1).fill(null));
-
   for (let i = 0; i <= b.length; i++) matrix[i][0] = i;
   for (let j = 0; j <= a.length; j++) matrix[0][j] = j;
-
   for (let i = 1; i <= b.length; i++) {
     for (let j = 1; j <= a.length; j++) {
       const cost = a[j - 1] === b[i - 1] ? 0 : 1;
-      matrix[i][j] = Math.min(
-        matrix[i - 1][j] + 1, // deletion
-        matrix[i][j - 1] + 1, // insertion
-        matrix[i - 1][j - 1] + cost // substitution
-      );
+      matrix[i][j] = Math.min(matrix[i - 1][j] + 1, matrix[i][j - 1] + 1, matrix[i - 1][j - 1] + cost);
     }
   }
-
   return matrix[b.length][a.length];
 };
 
@@ -53,7 +44,8 @@ const CountryCombobox: React.FC<CountryComboboxProps> = ({
   countries,
   selectedCountry,
   onSelect,
-  placeholder = "اختر دولة..."
+  placeholder,
+  type = 'origin'
 }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
@@ -77,21 +69,15 @@ const CountryCombobox: React.FC<CountryComboboxProps> = ({
 
   useEffect(() => {
     if (isOpen && inputRef.current) {
-      setTimeout(() => {
-        inputRef.current?.focus();
-      }, 50);
+      setTimeout(() => inputRef.current?.focus(), 50);
     }
   }, [isOpen]);
 
   useEffect(() => {
-    const timer = setTimeout(() => {
-      setDebouncedQuery(searchQuery);
-    }, 300);
-
+    const timer = setTimeout(() => setDebouncedQuery(searchQuery), 200);
     return () => clearTimeout(timer);
   }, [searchQuery]);
 
-  // Pre-compute normalized country names for performance
   const searchableCountries = useMemo(() => {
     return countries.map(country => ({
       ...country,
@@ -100,68 +86,28 @@ const CountryCombobox: React.FC<CountryComboboxProps> = ({
     }));
   }, [countries]);
 
-  // Enhanced Fuzzy Search Logic
   const filteredCountries = useMemo(() => {
     const query = normalizeText(debouncedQuery);
-    
     if (!query) return countries;
-
     return searchableCountries
       .map(item => {
         const { normAr, normEn, ...country } = item;
         let score = 999;
         let match = false;
-
-        // 1. Exact Match (Highest Priority)
-        if (normAr === query || normEn === query) {
-            score = 0;
-            match = true;
+        if (normAr === query || normEn === query) { score = 0; match = true; } 
+        else if (normAr.startsWith(query) || normEn.startsWith(query)) { score = 10; match = true; } 
+        else if (normAr.includes(query) || normEn.includes(query)) { score = 20; match = true; } 
+        else if (query.length >= 3) {
+          const distAr = levenshteinDistance(query, normAr);
+          const distEn = levenshteinDistance(query, normEn);
+          const threshold = Math.floor(query.length * 0.4) + 1;
+          if (distAr <= threshold || distEn <= threshold) { score = 30 + Math.min(distAr, distEn); match = true; }
         }
-        // 2. Starts With
-        else if (normAr.startsWith(query) || normEn.startsWith(query)) {
-            score = 10;
-            match = true;
-        }
-        // 3. Contains
-        else if (normAr.includes(query) || normEn.includes(query)) {
-             score = 20;
-             match = true;
-        }
-        // 4. Fuzzy Match (Levenshtein) - Handle Typos
-        else if (query.length >= 2) {
-            const distAr = levenshteinDistance(query, normAr);
-            const distEn = levenshteinDistance(query, normEn);
-            
-            // Adaptive threshold based on query length
-            const threshold = Math.floor(query.length * 0.4) + 1; 
-
-            if (distAr <= threshold || distEn <= threshold) {
-                 score = 30 + Math.min(distAr, distEn);
-                 match = true;
-            } else {
-                 // 5. Word-based Fuzzy Match (e.g. "States" in "United States")
-                const words = [...normAr.split(' '), ...normEn.split(' ')];
-                let bestWordDist = 100;
-                
-                for (const word of words) {
-                    if (Math.abs(word.length - query.length) > 2) continue;
-                    const d = levenshteinDistance(query, word);
-                    if (d < bestWordDist) bestWordDist = d;
-                }
-
-                if (bestWordDist <= 1) { 
-                    score = 40 + bestWordDist;
-                    match = true;
-                }
-            }
-        }
-
         return { country, score, match };
       })
       .filter(item => item.match)
       .sort((a, b) => a.score - b.score)
       .map(item => item.country);
-      
   }, [debouncedQuery, searchableCountries, countries]);
 
   const handleSelect = (country: Country) => {
@@ -171,11 +117,21 @@ const CountryCombobox: React.FC<CountryComboboxProps> = ({
     setDebouncedQuery('');
   };
 
+  const dynamicStyles = useMemo(() => {
+    if (!selectedCountry) return {};
+    return {
+      borderColor: selectedCountry.color,
+      boxShadow: isOpen ? `0 0 0 4px ${selectedCountry.color}20` : 'none'
+    };
+  }, [selectedCountry, isOpen]);
+
+  const resolvedPlaceholder = placeholder || (type === 'origin' ? 'اختر دولة الجنسية / المغادرة' : 'اختر وجهة السفر المقصودة');
+
   return (
-    <div className="w-full relative" ref={wrapperRef}>
+    <div className="w-full relative group" ref={wrapperRef}>
       <label 
         id={labelId}
-        className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5"
+        className={`block text-[10px] font-black mb-1.5 uppercase tracking-widest ${selectedCountry ? 'text-slate-900 dark:text-slate-200' : 'text-slate-400 dark:text-slate-500'}`}
       >
         {label}
       </label>
@@ -186,111 +142,78 @@ const CountryCombobox: React.FC<CountryComboboxProps> = ({
         aria-haspopup="listbox"
         aria-expanded={isOpen}
         aria-controls={listboxId}
-        aria-labelledby={labelId}
+        style={dynamicStyles}
         className={`
           w-full flex items-center justify-between 
-          bg-white dark:bg-slate-800 border rounded-xl px-4 py-2.5 text-right min-h-[56px]
-          transition-all duration-200 ease-in-out
-          focus:outline-none focus:ring-2 focus:ring-emerald-500/50 focus:border-emerald-500
-          ${isOpen ? 'border-emerald-500 ring-2 ring-emerald-500/20 dark:ring-emerald-900/40' : 'border-slate-200 dark:border-slate-700 hover:border-emerald-400 dark:hover:border-emerald-600'}
+          bg-white dark:bg-slate-900 border rounded-2xl px-4 py-3 text-right min-h-[64px]
+          transition-all duration-300 relative z-10 focus:outline-none
+          ${!selectedCountry ? 'border-slate-200 dark:border-slate-800 hover:border-emerald-400' : 'border-2'}
         `}
       >
-        <span className={`flex items-center gap-3 ${!selectedCountry ? 'text-slate-400 dark:text-slate-500' : 'text-slate-900 dark:text-white'} text-right overflow-hidden`}>
+        <span className="flex items-center gap-3 truncate text-right w-full">
           {selectedCountry ? (
             <>
-              <span className="text-3xl shrink-0 leading-none filter drop-shadow-sm" aria-hidden="true">{selectedCountry.flag}</span>
+              <div className="relative">
+                <span className="text-2xl drop-shadow-sm">{selectedCountry.flag}</span>
+                <div 
+                  className="absolute -bottom-1 -right-1 w-3 h-3 rounded-full border-2 border-white dark:border-slate-900 shadow-sm" 
+                  style={{ backgroundColor: selectedCountry.color }} 
+                />
+              </div>
               <div className="flex flex-col items-start overflow-hidden">
-                <span className="font-bold truncate w-full text-base text-slate-800 dark:text-slate-200 leading-tight">{selectedCountry.nameAr}</span>
-                <span className="text-xs text-slate-500 dark:text-slate-400 font-normal truncate w-full">{selectedCountry.nameEn}</span>
+                <span className="font-bold text-slate-900 dark:text-white truncate">{selectedCountry.nameAr}</span>
+                <span className="text-[9px] text-slate-400 uppercase font-black" style={{ color: selectedCountry.color }}>{selectedCountry.nameEn}</span>
               </div>
             </>
           ) : (
-            placeholder
+            <span className="text-slate-400 font-medium">{resolvedPlaceholder}</span>
           )}
         </span>
-        <ChevronDown 
-          className={`w-5 h-5 text-slate-400 dark:text-slate-500 transition-transform duration-200 shrink-0 ${isOpen ? 'rotate-180' : ''}`} 
-          aria-hidden="true"
-        />
+        <ChevronDown className={`w-5 h-5 transition-transform duration-300 ${isOpen ? 'rotate-180' : 'text-slate-300'}`} />
       </button>
 
       {isOpen && (
-        <div 
-          className="absolute z-50 w-full mt-2 bg-white dark:bg-slate-800 rounded-xl shadow-xl border border-slate-100 dark:border-slate-700 overflow-hidden animate-in fade-in zoom-in-95 duration-100 origin-top"
-        >
-          <div className="p-2 border-b border-slate-100 dark:border-slate-700 sticky top-0 bg-white dark:bg-slate-800 z-10">
+        <div className="absolute z-50 w-full mt-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-2xl overflow-hidden animate-in fade-in slide-in-from-top-2 duration-200">
+          <div className="p-3 border-b border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/50">
             <div className="relative">
-              <Search className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 dark:text-slate-500 pointer-events-none" aria-hidden="true" />
+              <Search className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
               <input
                 ref={inputRef}
                 type="text"
-                className="w-full pl-9 pr-9 py-2 bg-slate-50 dark:bg-slate-900/50 rounded-lg text-sm focus:outline-none focus:ring-1 focus:ring-emerald-500 text-slate-900 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-600"
+                className="w-full pr-10 pl-4 py-2.5 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-sm outline-none focus:ring-2 focus:ring-emerald-500/20"
                 placeholder="ابحث باسم الدولة..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                aria-label="بحث عن دولة"
-                aria-autocomplete="list"
-                aria-controls={listboxId}
               />
-              {searchQuery && (
-                <button
-                  onClick={() => {
-                    setSearchQuery('');
-                    setDebouncedQuery('');
-                    inputRef.current?.focus();
-                  }}
-                  className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:text-slate-500 dark:hover:text-slate-300 p-1 rounded-full hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"
-                  type="button"
-                  aria-label="مسح البحث"
-                >
-                  <X className="w-4 h-4" />
-                </button>
-              )}
             </div>
           </div>
-          
-          <ul 
-            id={listboxId}
-            role="listbox"
-            aria-label={label}
-            className="max-h-60 overflow-y-auto p-1 focus:outline-none scroll-smooth"
-            tabIndex={-1}
-          >
+          <ul id={listboxId} role="listbox" className="max-h-72 overflow-y-auto custom-scrollbar">
             {filteredCountries.length === 0 ? (
-              <li className="p-4 text-center text-sm text-slate-500 dark:text-slate-400" role="status">
-                {debouncedQuery !== searchQuery ? 'جاري البحث...' : 'لا توجد نتائج'}
-              </li>
+              <li className="px-6 py-10 text-center text-slate-400 text-sm italic">لا توجد نتائج مطابقة</li>
             ) : (
-              filteredCountries.map((country) => {
-                const isSelected = selectedCountry?.code === country.code;
-                return (
-                  <li 
-                    key={country.code} 
-                    role="presentation"
+              filteredCountries.map((country) => (
+                <li key={country.code}>
+                  <button
+                    onClick={() => handleSelect(country)}
+                    className={`
+                      w-full flex items-center justify-between px-4 py-3 text-right hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors
+                      ${selectedCountry?.code === country.code ? 'bg-slate-50 dark:bg-slate-800' : ''}
+                    `}
                   >
-                    <button
-                      role="option"
-                      aria-selected={isSelected}
-                      onClick={() => handleSelect(country)}
-                      className={`
-                        w-full flex items-center justify-between px-4 py-2.5 text-right text-sm rounded-lg
-                        transition-colors hover:bg-emerald-50 dark:hover:bg-emerald-900/20
-                        focus:outline-none focus:bg-emerald-50 dark:focus:bg-emerald-900/20 focus:ring-1 focus:ring-emerald-500
-                        ${isSelected ? 'bg-emerald-50 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-400 font-medium' : 'text-slate-700 dark:text-slate-300'}
-                      `}
-                    >
-                      <span className="flex items-center gap-3">
-                        <span className="text-2xl leading-none" aria-hidden="true">{country.flag}</span>
-                        <span>{country.nameAr}</span>
-                        <span className="text-slate-400 dark:text-slate-500 text-xs hidden sm:inline">({country.nameEn})</span>
-                      </span>
-                      {isSelected && (
-                        <Check className="w-4 h-4 text-emerald-600 dark:text-emerald-500" aria-hidden="true" />
-                      )}
-                    </button>
-                  </li>
-                );
-              })
+                    <span className="flex items-center gap-3">
+                      <div className="relative">
+                        <span className="text-xl">{country.flag}</span>
+                        <div className="absolute -top-1 -left-1 w-2 h-2 rounded-full shadow-sm" style={{ backgroundColor: country.color }} />
+                      </div>
+                      <div className="flex flex-col items-start">
+                        <span className="text-sm font-bold text-slate-700 dark:text-slate-200">{country.nameAr}</span>
+                        <span className="text-[10px] text-slate-400 uppercase font-bold" style={{ color: `${country.color}CC` }}>{country.nameEn}</span>
+                      </div>
+                    </span>
+                    {selectedCountry?.code === country.code && <Check className="w-4 h-4" style={{ color: country.color }} />}
+                  </button>
+                </li>
+              ))
             )}
           </ul>
         </div>

@@ -25,3 +25,13 @@ export interface VisaInfoResponse {
   sources: { title: string; url: string }[];
   generatedAt: string;
 }
+
+/**
+ * Interface for the AI-powered bank statement analysis result.
+ */
+export interface BankAnalysisResult {
+  summaryAr: string;
+  riskLevel: 'Low' | 'Medium' | 'High';
+  findings: string[];
+  recommendations: string[];
+}
