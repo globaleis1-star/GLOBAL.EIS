@@ -89,20 +89,58 @@ const CountryCombobox: React.FC<CountryComboboxProps> = ({
   const filteredCountries = useMemo(() => {
     const query = normalizeText(debouncedQuery);
     if (!query) return countries;
+
     return searchableCountries
       .map(item => {
         const { normAr, normEn, ...country } = item;
-        let score = 999;
+        let score = 1000;
         let match = false;
-        if (normAr === query || normEn === query) { score = 0; match = true; } 
-        else if (normAr.startsWith(query) || normEn.startsWith(query)) { score = 10; match = true; } 
-        else if (normAr.includes(query) || normEn.includes(query)) { score = 20; match = true; } 
-        else if (query.length >= 3) {
+
+        // 1. Exact match on code (highest priority)
+        if (country.code.toLowerCase() === query) {
+          score = 0;
+          match = true;
+        }
+        // 2. Exact match on normalized names
+        else if (normAr === query || normEn === query) {
+          score = 1;
+          match = true;
+        }
+        // 3. Starts with
+        else if (normAr.startsWith(query) || normEn.startsWith(query)) {
+          score = 10;
+          match = true;
+        }
+        // 4. Includes
+        else if (normAr.includes(query) || normEn.includes(query)) {
+          score = 20;
+          match = true;
+        }
+        // 5. Word-order agnostic match (e.g., "States United" -> "United States")
+        else {
+          const queryWords = query.split(/\s+/).filter(Boolean);
+          if (queryWords.length > 1) {
+            const allWordsMatchAr = queryWords.every(qw => normAr.includes(qw));
+            const allWordsMatchEn = queryWords.every(qw => normEn.includes(qw));
+            if (allWordsMatchAr || allWordsMatchEn) {
+              score = 30;
+              match = true;
+            }
+          }
+        }
+
+        // 6. Fuzzy match (lowest priority)
+        if (!match && query.length >= 3) {
           const distAr = levenshteinDistance(query, normAr);
           const distEn = levenshteinDistance(query, normEn);
-          const threshold = Math.floor(query.length * 0.4) + 1;
-          if (distAr <= threshold || distEn <= threshold) { score = 30 + Math.min(distAr, distEn); match = true; }
+          const threshold = Math.floor(query.length * 0.4) + 1; // Slightly more relaxed threshold
+          
+          if (distAr <= threshold || distEn <= threshold) {
+            score = 100 + Math.min(distAr, distEn);
+            match = true;
+          }
         }
+
         return { country, score, match };
       })
       .filter(item => item.match)
@@ -180,11 +218,23 @@ const CountryCombobox: React.FC<CountryComboboxProps> = ({
               <input
                 ref={inputRef}
                 type="text"
-                className="w-full pr-10 pl-4 py-2.5 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-sm outline-none focus:ring-2 focus:ring-emerald-500/20"
+                className="w-full pr-10 pl-10 py-2.5 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-sm outline-none focus:ring-2 focus:ring-emerald-500/20"
                 placeholder="ابحث باسم الدولة..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
               />
+              {searchQuery && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSearchQuery('');
+                    inputRef.current?.focus();
+                  }}
+                  className="absolute left-3 top-1/2 -translate-y-1/2 p-1 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg transition-colors text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              )}
             </div>
           </div>
           <ul id={listboxId} role="listbox" className="max-h-72 overflow-y-auto custom-scrollbar">

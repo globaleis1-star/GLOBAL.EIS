@@ -1,13 +1,13 @@
 
 import React, { useState, useEffect, useRef } from 'react';
-import { ArrowLeft, Sparkles, X, CloudOff, Moon, Sun, RotateCcw, Globe2, TrendingUp, Map as MapIcon, List as ListIcon, Share2, CheckCircle2 } from 'lucide-react';
+import { ArrowLeft, Sparkles, X, CloudOff, Moon, Sun, RotateCcw, Globe2, TrendingUp, Share2, CheckCircle2 } from 'lucide-react';
 import { COUNTRIES } from './constants';
 import { Country, VisaInfoResponse } from './types';
 import { getVisaRequirements } from './services/geminiService';
 import CountryCombobox from './components/CountryCombobox';
 import VisaResult from './components/VisaResult';
-import InteractiveMap from './components/InteractiveMap';
 import IconManager from './components/IconManager';
+import WorldMap from './components/WorldMap';
 
 const Spinner = ({ className = "w-5 h-5" }: { className?: string }) => (
   <svg className={`animate-spin ${className}`} xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
@@ -22,7 +22,7 @@ const FEATURED_DESTINATIONS = [
     name: 'فرنسا (شنغن)',
     flag: '🇫🇷',
     image: 'https://images.unsplash.com/photo-1502602898657-3e91760cbb34?auto=format&fit=crop&w=600&q=80',
-    summary: 'تحديثات شنغن 2026: بدء تفعيل نظام ETIAS الرقمي بالكامل.',
+    summary: 'تحديثات شنغن: بدء تفعيل نظام ETIAS الرقمي بالكامل.',
     tagColor: 'text-blue-600 bg-blue-50 border-blue-200 dark:bg-blue-900/30 dark:border-blue-800 dark:text-blue-300'
   },
   {
@@ -30,7 +30,7 @@ const FEATURED_DESTINATIONS = [
     name: 'تركيا',
     flag: '🇹🇷',
     image: 'https://images.unsplash.com/photo-1524231757912-21f4fe3a7200?auto=format&fit=crop&w=600&q=80',
-    summary: 'متطلبات 2026: تسهيلات جديدة لحاملي التأشيرات الأوروبية والأمريكية.',
+    summary: 'تسهيلات جديدة لحاملي التأشيرات الأوروبية والأمريكية.',
     tagColor: 'text-red-600 bg-red-50 border-red-200 dark:bg-red-900/30 dark:border-red-800 dark:text-red-300'
   },
   {
@@ -38,7 +38,7 @@ const FEATURED_DESTINATIONS = [
     name: 'المملكة المتحدة',
     flag: '🇬🇧',
     image: 'https://images.unsplash.com/photo-1513635269975-59663e0ac1ad?auto=format&fit=crop&w=600&q=80',
-    summary: 'نظام eVisa 2026: إلغاء البطاقات الورقية والانتقال للهوية الرقمية.',
+    summary: 'نظام eVisa: إلغاء البطاقات الورقية والانتقال للهوية الرقمية.',
     tagColor: 'text-indigo-600 bg-indigo-50 border-indigo-200 dark:bg-indigo-900/30 dark:border-indigo-800 dark:text-indigo-300'
   },
   {
@@ -46,7 +46,7 @@ const FEATURED_DESTINATIONS = [
     name: 'ماليزيا',
     flag: '🇲🇾',
     image: 'https://images.unsplash.com/photo-1596422846543-75c6fc197f07?auto=format&fit=crop&w=600&q=80',
-    summary: 'إعفاءات 2026 مع اشتراط التسجيل المسبق عبر نظام MDAC.',
+    summary: 'إعفاءات مع اشتراط التسجيل المسبق عبر نظام MDAC.',
     tagColor: 'text-emerald-600 bg-emerald-50 border-emerald-200 dark:bg-emerald-900/30 dark:border-emerald-800 dark:text-emerald-300'
   }
 ];
@@ -99,7 +99,7 @@ const FeaturedDestinationCard: React.FC<{
       <div className="p-4 flex flex-col flex-1 relative z-20 bg-white dark:bg-slate-900">
         <div className="flex justify-between items-start mb-2">
           <h4 className="font-bold text-slate-900 dark:text-white text-base group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors line-clamp-1">{dest.name}</h4>
-          <div className={`text-[10px] px-2 py-0.5 rounded-full font-bold border shrink-0 ${dest.tagColor}`}>2026</div>
+          <div className={`text-[10px] px-2 py-0.5 rounded-full font-bold border shrink-0 ${dest.tagColor}`}>محدث</div>
         </div>
         <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed font-medium line-clamp-2">{dest.summary}</p>
       </div>
@@ -113,10 +113,23 @@ const App: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<VisaInfoResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [viewMode, setViewMode] = useState<'form' | 'map'>('form');
   const [showCopyToast, setShowCopyToast] = useState(false);
   const searchFormRef = useRef<HTMLDivElement>(null);
-  const [theme, setTheme] = useState<'light' | 'dark'>('light');
+  const [theme, setTheme] = useState<'light' | 'dark'>('dark');
+
+  const handleSearchInternal = async (o: Country, d: Country) => {
+    setLoading(true);
+    setError(null);
+    setResult(null);
+    try {
+      const data = await getVisaRequirements({ origin: o, destination: d });
+      setResult(data);
+    } catch (err: any) {
+      setError(err.message || "حدث خطأ غير متوقع في جلب البيانات");
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
     try {
@@ -124,13 +137,20 @@ const App: React.FC = () => {
       const fromCode = params.get('from');
       const toCode = params.get('to');
 
+      let initialOrigin: Country | null = null;
+      let initialDest: Country | null = null;
+
       if (fromCode) {
-        const foundOrigin = COUNTRIES.find(c => c.code === fromCode.toUpperCase()) || null;
-        if (foundOrigin) setOrigin(foundOrigin);
+        initialOrigin = COUNTRIES.find(c => c.code === fromCode.toUpperCase()) || null;
+        if (initialOrigin) setOrigin(initialOrigin);
       }
       if (toCode) {
-        const foundDest = COUNTRIES.find(c => c.code === toCode.toUpperCase()) || null;
-        if (foundDest) setDestination(foundDest);
+        initialDest = COUNTRIES.find(c => c.code === toCode.toUpperCase()) || null;
+        if (initialDest) setDestination(initialDest);
+      }
+
+      if (initialOrigin && initialDest && initialOrigin.code !== initialDest.code) {
+        handleSearchInternal(initialOrigin, initialDest);
       }
     } catch (e) {}
   }, []);
@@ -149,10 +169,10 @@ const App: React.FC = () => {
 
   useEffect(() => {
     const savedTheme = localStorage.getItem('theme');
-    if (savedTheme === 'dark' || (!savedTheme && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
-      setTheme('dark');
-    } else {
+    if (savedTheme === 'light') {
       setTheme('light');
+    } else {
+      setTheme('dark');
     }
   }, []);
 
@@ -204,10 +224,10 @@ const App: React.FC = () => {
     if (navigator.share && /Android|iPhone|iPad|iPod/i.test(navigator.userAgent)) {
       try {
         await navigator.share({
-          title: 'دليل التأشيرات 2026',
+          title: 'دليل التأشيرات',
           text: result 
-            ? `تعرف على متطلبات السفر لعام 2026 من ${origin?.nameAr} إلى ${destination?.nameAr}`
-            : 'أداة ذكية لاكتشاف متطلبات التأشيرة المحدثة لعام 2026.',
+            ? `تعرف على متطلبات السفر من ${origin?.nameAr} إلى ${destination?.nameAr}`
+            : 'أداة ذكية لاكتشاف متطلبات التأشيرة المحدثة.',
           url: shareUrl,
         });
       } catch (err) {}
@@ -218,20 +238,6 @@ const App: React.FC = () => {
     const temp = origin;
     setOrigin(destination);
     setDestination(temp);
-  };
-
-  const handleSearchInternal = async (o: Country, d: Country) => {
-    setLoading(true);
-    setError(null);
-    setResult(null);
-    try {
-      const data = await getVisaRequirements({ origin: o, destination: d });
-      setResult(data);
-    } catch (err: any) {
-      setError(err.message || "حدث خطأ غير متوقع في جلب البيانات");
-    } finally {
-      setLoading(false);
-    }
   };
 
   const handleSearch = () => {
@@ -263,7 +269,7 @@ const App: React.FC = () => {
             </div>
             <div className="flex flex-col">
               <h1 className="text-xl font-bold text-slate-800 dark:text-white leading-none">دليل التأشيرات</h1>
-              <span className="text-[10px] font-black text-emerald-600 dark:text-emerald-400 tracking-widest mt-1">نسخة 2026 المحدثة</span>
+              <span className="text-[10px] font-black text-emerald-600 dark:text-emerald-400 tracking-widest mt-1">دليلك الذكي للسفر</span>
             </div>
           </div>
           <div className="flex items-center gap-2">
@@ -292,27 +298,19 @@ const App: React.FC = () => {
         <div className="text-center mb-12">
           <h2 className="text-3xl md:text-5xl font-extrabold text-slate-900 dark:text-white mb-4 leading-tight">
             دليلك حول العالم <br className="hidden md:block" />
-            <span className="text-transparent bg-clip-text bg-gradient-to-r from-emerald-600 to-teal-500 dark:from-emerald-400 dark:to-teal-300">لمتطلبات التأشيرات لعام 2026</span>
+            <span className="text-transparent bg-clip-text bg-gradient-to-r from-emerald-600 to-teal-500 dark:from-emerald-400 dark:to-teal-300">لمتطلبات التأشيرات</span>
           </h2>
-          <p className="text-slate-500 dark:text-slate-400 text-lg max-w-2xl mx-auto font-medium">احصل على أدق المعلومات حول الفيزا والرسوم والمستندات وفقاً لتحديثات 2026</p>
+          <p className="text-slate-500 dark:text-slate-400 text-lg max-w-2xl mx-auto font-medium">احصل على أدق المعلومات حول الفيزا والرسوم والمستندات</p>
         </div>
 
-        <div className="flex justify-center mb-8">
-            <div className="inline-flex p-1.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-sm">
-                <button type="button" onClick={() => setViewMode('form')} className={`flex items-center gap-2 px-6 py-2.5 rounded-xl font-bold text-sm transition-all ${viewMode === 'form' ? 'bg-emerald-600 text-white shadow-lg' : 'text-slate-500 hover:bg-slate-50 dark:hover:bg-slate-800'}`}>
-                    <ListIcon className="w-4 h-4" /> القائمة
-                </button>
-                <button type="button" onClick={() => setViewMode('map')} className={`flex items-center gap-2 px-6 py-2.5 rounded-xl font-bold text-sm transition-all ${viewMode === 'map' ? 'bg-emerald-600 text-white shadow-lg' : 'text-slate-500 hover:bg-slate-50 dark:hover:bg-slate-800'}`}>
-                    <MapIcon className="w-4 h-4" /> الخريطة
-                </button>
-            </div>
+        <div className="mb-12">
+          <WorldMap 
+            selectedOrigin={origin}
+            selectedDestination={destination}
+            onSelectOrigin={setOrigin}
+            onSelectDestination={setDestination}
+          />
         </div>
-
-        {viewMode === 'map' && (
-            <div className="mb-10 animate-in fade-in zoom-in-95 duration-500">
-                <InteractiveMap origin={origin} destination={destination} onSelectOrigin={setOrigin} onSelectDestination={setDestination} theme={theme} />
-            </div>
-        )}
 
         <div ref={searchFormRef} className="bg-white dark:bg-slate-900 rounded-2xl shadow-xl shadow-slate-200/50 dark:shadow-slate-950/50 border border-white dark:border-slate-800 ring-1 ring-slate-100 dark:ring-slate-800 p-6 md:p-8 mb-10 relative overflow-hidden transition-colors duration-300">
           <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-emerald-500 via-teal-400 to-cyan-500" />
@@ -323,7 +321,7 @@ const App: React.FC = () => {
           </div>
           <div className="mt-8 flex flex-col sm:flex-row items-center justify-center gap-4">
             <button type="button" onClick={handleSearch} disabled={!isFormValid || loading} className={`group relative flex items-center justify-center gap-2 px-8 py-4 rounded-xl font-bold text-lg w-full sm:w-auto md:min-w-[240px] transition-all duration-300 shadow-lg shadow-emerald-200 dark:shadow-emerald-900/20 ${!isFormValid ? 'bg-slate-100 dark:bg-slate-800 text-slate-400 dark:text-slate-500 cursor-not-allowed' : 'bg-emerald-600 hover:bg-emerald-700 text-white hover:shadow-emerald-300 dark:hover:shadow-emerald-900/40 hover:-translate-y-0.5 active:translate-y-0'}`}>
-              {loading ? <><Spinner className="h-5 w-5 text-white" /><span>جاري الفحص لعام 2026...</span></> : <><Sparkles className="w-5 h-5" /><span>فحص متطلبات 2026</span></>}
+              {loading ? <><Spinner className="h-5 w-5 text-white" /><span>جاري الفحص...</span></> : <><Sparkles className="w-5 h-5" /><span>فحص المتطلبات</span></>}
             </button>
             {result && <button type="button" onClick={handleReset} disabled={loading} className="flex items-center justify-center gap-2 px-6 py-4 rounded-xl font-bold text-lg w-full sm:w-auto bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700 hover:border-slate-300 dark:hover:border-slate-600 transition-all duration-200"><RotateCcw className="w-5 h-5" /><span>تصفير</span></button>}
           </div>
@@ -341,7 +339,7 @@ const App: React.FC = () => {
 
         {!result && !loading && (
           <div className="mb-12 animate-in fade-in slide-in-from-bottom-4 duration-700 delay-100">
-             <div className="flex items-center gap-2 mb-4 px-1"><TrendingUp className="w-5 h-5 text-emerald-600 dark:text-emerald-400" /><h3 className="text-lg font-bold text-slate-800 dark:text-white">وجهات رائجة 2026</h3></div>
+             <div className="flex items-center gap-2 mb-4 px-1"><TrendingUp className="w-5 h-5 text-emerald-600 dark:text-emerald-400" /><h3 className="text-lg font-bold text-slate-800 dark:text-white">وجهات رائجة</h3></div>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
               {FEATURED_DESTINATIONS.map((dest) => <FeaturedDestinationCard key={dest.code} dest={dest} onClick={() => { const country = COUNTRIES.find(c => c.code === dest.code); if (country) { setDestination(country); searchFormRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' }); } }} />)}
             </div>

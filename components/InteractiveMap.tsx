@@ -1,8 +1,9 @@
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useRef } from 'react';
 import { Country } from '../types';
 import { COUNTRIES } from '../constants';
 import { PlaneTakeoff, PlaneLanding, MousePointer2 } from 'lucide-react';
+import { motion, useScroll, useTransform } from 'motion/react';
 
 interface InteractiveMapProps {
   origin: Country | null;
@@ -20,6 +21,16 @@ const InteractiveMap: React.FC<InteractiveMapProps> = ({
   theme 
 }) => {
   const [popup, setPopup] = useState<{ x: number; y: number; country: Country } | null>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  const { scrollYProgress } = useScroll({
+    target: containerRef,
+    offset: ["start end", "end start"]
+  });
+
+  const yGrid = useTransform(scrollYProgress, [0, 1], [-20, 20]);
+  const yGradient = useTransform(scrollYProgress, [0, 1], [30, -30]);
+  const scaleContent = useTransform(scrollYProgress, [0, 0.5, 1], [0.98, 1, 0.98]);
 
   const handleCountryClick = (e: React.MouseEvent, country: Country) => {
     e.stopPropagation();
@@ -35,6 +46,7 @@ const InteractiveMap: React.FC<InteractiveMapProps> = ({
 
   return (
     <div 
+      ref={containerRef}
       className={`
         relative w-full aspect-[16/9] rounded-3xl border border-slate-200 dark:border-slate-800 
         overflow-hidden group shadow-inner transition-colors duration-500
@@ -43,11 +55,23 @@ const InteractiveMap: React.FC<InteractiveMapProps> = ({
       `} 
       onClick={closePopup}
     >
-      <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(16,185,129,0.05),transparent_70%)] pointer-events-none" />
-      <div className="absolute inset-0 opacity-[0.03] dark:opacity-[0.05] pointer-events-none" 
-           style={{ backgroundImage: 'radial-gradient(circle, currentColor 1px, transparent 1px)', backgroundSize: '30px 30px' }} />
+      <motion.div 
+        style={{ y: yGradient }}
+        className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(16,185,129,0.05),transparent_70%)] pointer-events-none" 
+      />
+      <motion.div 
+        className="absolute inset-0 opacity-[0.03] dark:opacity-[0.05] pointer-events-none" 
+        style={{ 
+          backgroundImage: 'radial-gradient(circle, currentColor 1px, transparent 1px)', 
+          backgroundSize: '30px 30px',
+          y: yGrid
+        }} 
+      />
 
-      <div className="absolute inset-0 flex items-center justify-center p-8">
+      <motion.div 
+        style={{ scale: scaleContent }}
+        className="absolute inset-0 flex items-center justify-center p-8"
+      >
         <div className="text-center w-full">
             <div className="mb-4 flex flex-col items-center">
                 <div className="w-16 h-16 bg-emerald-500/10 rounded-full flex items-center justify-center mb-4 ring-8 ring-emerald-500/5">
@@ -87,7 +111,7 @@ const InteractiveMap: React.FC<InteractiveMapProps> = ({
                 })}
             </div>
         </div>
-      </div>
+      </motion.div>
 
       {popup && (
         <div 

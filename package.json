@@ -6,23 +6,30 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "lint": "tsc --noEmit"
   },
   "dependencies": {
+    "@google/genai": "^1.43.0",
+    "@google/generative-ai": "latest",
+    "@types/d3": "^7.4.3",
+    "@types/topojson-client": "^3.1.5",
+    "d3": "^7.9.0",
+    "lucide-react": "^0.294.0",
+    "motion": "^12.35.0",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
-    "lucide-react": "^0.294.0",
     "react-markdown": "^9.0.1",
-    "@google/generative-ai": "latest"
+    "topojson-client": "^3.1.0"
   },
   "devDependencies": {
     "@types/react": "^18.2.37",
     "@types/react-dom": "^18.2.15",
     "@vitejs/plugin-react": "^4.2.0",
-    "typescript": "^5.2.2",
-    "vite": "^5.0.0",
     "autoprefixer": "^10.4.16",
     "postcss": "^8.4.31",
-    "tailwindcss": "^3.3.5"
+    "tailwindcss": "^3.3.5",
+    "typescript": "^5.2.2",
+    "vite": "^5.0.0"
   }
 }

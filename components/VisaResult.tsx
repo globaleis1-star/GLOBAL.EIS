@@ -19,6 +19,24 @@ const MarkdownComponents = {
   h3: ({ ...props }) => <h3 className="hidden" {...props} />, // We hide headers as we parse them into the UI
   p: ({ ...props }) => <p className="text-slate-600 dark:text-slate-300 leading-relaxed mb-3 text-sm" {...props} />,
   ul: ({ ...props }) => <ul className="list-disc list-inside space-y-1 mb-3 text-slate-600 dark:text-slate-300 text-xs" {...props} />,
+  ol: ({ ...props }) => (
+    <ol className="relative border-r-2 border-emerald-100 dark:border-emerald-900/30 pr-6 mr-2 space-y-6 mb-6 mt-4" {...props} />
+  ),
+  li: ({ children, ...props }: any) => {
+    // If parent is ol, it's a step
+    const isStep = props.node?.parent?.tagName === 'ol';
+    if (isStep) {
+      return (
+        <li className="relative list-none" {...props}>
+          <div className="absolute -right-[31px] top-0.5 w-5 h-5 rounded-full bg-emerald-500 flex items-center justify-center border-4 border-white dark:border-slate-900 shadow-sm z-10">
+             <div className="w-1.5 h-1.5 rounded-full bg-white" />
+          </div>
+          <div className="text-xs font-medium text-slate-700 dark:text-slate-200 leading-relaxed">{children}</div>
+        </li>
+      );
+    }
+    return <li className="text-xs text-slate-600 dark:text-slate-300 mb-1" {...props}>{children}</li>;
+  }
 };
 
 const VisaTypeCard: React.FC<{ title: string; icon: any; content: string; colorClass: string }> = ({ title, icon: Icon, content, colorClass }) => {
@@ -46,17 +64,45 @@ const VisaResult: React.FC<VisaResultProps> = ({ data, origin, destination, onRe
   const parsedTypes = useMemo(() => {
     const sections = data.markdown.split(/###/);
     const types: { title: string; content: string; icon: any; color: string }[] = [];
+    const seen = new Set<string>();
 
     sections.forEach(sec => {
-      const lower = sec.toLowerCase();
-      if (lower.includes('سياحة') || lower.includes('tourism')) {
-        types.push({ title: 'تأشيرة السياحة', icon: Plane, color: 'bg-emerald-500', content: sec.split('\n').slice(1).join('\n') });
-      } else if (lower.includes('أعمال') || lower.includes('business')) {
-        types.push({ title: 'تأشيرة الأعمال', icon: Briefcase, color: 'bg-blue-500', content: sec.split('\n').slice(1).join('\n') });
-      } else if (lower.includes('دراسة') || lower.includes('study')) {
-        types.push({ title: 'تأشيرة الدراسة', icon: GraduationCap, color: 'bg-indigo-500', content: sec.split('\n').slice(1).join('\n') });
-      } else if (lower.includes('علاج') || lower.includes('medical')) {
-        types.push({ title: 'تأشيرة العلاج', icon: HeartPulse, color: 'bg-rose-500', content: sec.split('\n').slice(1).join('\n') });
+      if (!sec.trim()) return;
+      
+      const lines = sec.split('\n');
+      const header = lines[0].toLowerCase();
+      const content = lines.slice(1).join('\n');
+      
+      let typeKey = '';
+      let title = '';
+      let icon = null;
+      let color = '';
+
+      if (header.includes('سياحة') || header.includes('tourism')) {
+        typeKey = 'tourism';
+        title = 'تأشيرة السياحة';
+        icon = Plane;
+        color = 'bg-emerald-500';
+      } else if (header.includes('أعمال') || header.includes('business')) {
+        typeKey = 'business';
+        title = 'تأشيرة الأعمال';
+        icon = Briefcase;
+        color = 'bg-blue-500';
+      } else if (header.includes('دراسة') || header.includes('study')) {
+        typeKey = 'study';
+        title = 'تأشيرة الدراسة';
+        icon = GraduationCap;
+        color = 'bg-indigo-500';
+      } else if (header.includes('علاج') || header.includes('medical')) {
+        typeKey = 'medical';
+        title = 'تأشيرة العلاج';
+        icon = HeartPulse;
+        color = 'bg-rose-500';
+      }
+
+      if (typeKey && !seen.has(typeKey)) {
+        seen.add(typeKey);
+        types.push({ title, icon, color, content });
       }
     });
 
@@ -68,7 +114,7 @@ const VisaResult: React.FC<VisaResultProps> = ({ data, origin, destination, onRe
       
       <div className="bg-slate-50 dark:bg-slate-950 p-6 rounded-3xl border border-slate-200 dark:border-slate-800 mb-8 flex items-center justify-between shadow-sm">
         <div>
-          <h2 className="text-2xl font-black text-slate-900 dark:text-white">تفاصيل التأشيرات لعام 2026</h2>
+          <h2 className="text-2xl font-black text-slate-900 dark:text-white">تفاصيل التأشيرات المحدثة</h2>
           <p className="text-slate-500 text-xs mt-1">المغادرة من {origin.nameAr} إلى {destination.nameAr}</p>
         </div>
         <button onClick={onRefresh} className="p-3 rounded-2xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-400 hover:text-emerald-500 transition-all active:scale-95 shadow-sm">
@@ -93,7 +139,7 @@ const VisaResult: React.FC<VisaResultProps> = ({ data, origin, destination, onRe
            <div className="bg-gradient-to-br from-indigo-50 to-blue-50 dark:from-indigo-950/40 dark:to-blue-950/40 rounded-3xl border border-indigo-100 dark:border-indigo-900/50 overflow-hidden shadow-sm">
             <div className="px-6 py-5 border-b border-indigo-100 dark:border-indigo-900/50 flex items-center gap-3">
                <div className="p-2 bg-indigo-600 rounded-xl text-white shadow-lg"><Smartphone className="w-5 h-5" /></div>
-               <h3 className="font-black text-slate-800 dark:text-white text-lg">التحول الرقمي البريطاني 2026</h3>
+               <h3 className="font-black text-slate-800 dark:text-white text-lg">التحول الرقمي البريطاني</h3>
             </div>
             <div className="p-6 grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="bg-white dark:bg-slate-900 p-4 rounded-2xl text-xs leading-relaxed text-slate-600 dark:text-slate-400">
@@ -117,7 +163,7 @@ const VisaResult: React.FC<VisaResultProps> = ({ data, origin, destination, onRe
         <div className="flex items-start gap-3">
           <AlertTriangle className="w-5 h-5 text-amber-600 shrink-0 mt-1" />
           <p className="text-xs text-amber-800 dark:text-amber-300 leading-relaxed font-medium">
-            <strong>إخلاء مسؤولية:</strong> البيانات بناءً على قوانين 2026 المعلنة. راجع المواقع الحكومية الرسمية (GOV.UK, EU Commission, etc.) قبل السفر.
+            <strong>إخلاء مسؤولية:</strong> البيانات بناءً على القوانين المتاحة. راجع المواقع الحكومية الرسمية (GOV.UK, EU Commission, etc.) قبل السفر.
           </p>
         </div>
       </div>
