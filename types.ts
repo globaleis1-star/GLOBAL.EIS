@@ -11,6 +11,7 @@ export interface Country {
 export interface VisaRequestParams {
   origin: Country;
   destination: Country;
+  language: 'ar' | 'en';
 }
 
 export interface GroundingChunk {
@@ -34,4 +35,12 @@ export interface BankAnalysisResult {
   riskLevel: 'Low' | 'Medium' | 'High';
   findings: string[];
   recommendations: string[];
+}
+
+export interface FavoriteVisa {
+  id: string;
+  origin: Country;
+  destination: Country;
+  data: VisaInfoResponse;
+  savedAt: string;
 }

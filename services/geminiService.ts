@@ -1,5 +1,5 @@
 
-import { GoogleGenAI, Type } from "@google/genai";
+import { GoogleGenAI, Type, ThinkingLevel } from "@google/genai";
 import { VisaRequestParams, VisaInfoResponse, BankAnalysisResult } from "../types";
 
 export type { BankAnalysisResult };
@@ -23,10 +23,12 @@ const TURKEY_2026_RULE = `
 `;
 
 const SPAIN_RULE = `
-**🚨 تحديثات تأشيرة إسبانيا (BLS International):**
-- **الرسوم**: 90 يورو للبالغين، 45 يورو للأطفال (6-12 سنة).
-- **طريقة الدفع**: تُدفع الرسوم نقداً بالجنيه المصري داخل مركز BLS وقت المقابلة.
-- **رسوم الخدمة**: حوالي 18 يورو (تُدفع بالجنيه المصري).
+**🚨 تحديثات تأشيرة إسبانيا (BLS International - 2024/2025):**
+- **رسوم التأشيرة (Schengen)**: 90 يورو للبالغين (حوالي 98-100 دولار أمريكي)، 45 يورو للأطفال (6-12 سنة).
+- **رسوم الخدمة (BLS)**: تبلغ حوالي 16.25 يورو (حوالي 18 دولار أمريكي).
+- **الإجمالي**: حوالي **106.25 يورو**. 
+- **ملاحظة**: قد يظهر المبلغ في بعض المواقع أو الحسابات بقيمة تقريبية تعادل **106 دولار** بناءً على أسعار صرف قديمة أو تقريبية، ولكن العملة الرسمية للرسوم هي **اليورو** وتُدفع بما يعادلها بالعملة المحلية (مثل الجنيه المصري).
+- **طريقة الدفع**: تُدفع كافة الرسوم نقداً بالعملة المحلية داخل مركز التقديم BLS.
 `;
 
 const ITALY_RULE = `
@@ -67,19 +69,27 @@ const CANADA_RULE = `
 - **البصمات**: إلزامية وتظل صالحة لمدة 10 سنوات.
 `;
 
+const BRAZIL_RULE = `
+**🚨 تحديثات تأشيرة البرازيل (Brazil Visa):**
+- **كشف الحساب البنكي**: تشترط القنصلية البرازيلية تقديم كشف حساب بنكي لآخر **3 أشهر** على الأقل، ويفضل أن يكون باللغة الإنجليزية أو مترجماً، مع وجود حركة سحب وإيداع منتظمة.
+- **سياسة الرفض**: في حال رفض التأشيرة، يجب على المتقدم الانتظار لمدة **6 أشهر** قبل محاولة التقديم مرة أخرى.
+- **الصورة الشخصية**: مقاس 4*6 خلفية بيضاء، حديثة (لم يمر عليها أكثر من 6 أشهر).
+`;
+
 /**
  * Fetch visa requirements from Gemini with categorical structure.
  */
 export const getVisaRequirements = async (params: VisaRequestParams): Promise<VisaInfoResponse> => {
   try {
-    const apiKey = process.env.GEMINI_API_KEY || process.env.API_KEY;
+    const apiKey = process.env.GEMINI_API_KEY || process.env.API_KEY || (import.meta as any).env?.VITE_GEMINI_API_KEY;
     
-    if (!apiKey || apiKey === "undefined" || apiKey === "") {
-      throw new Error("مفتاح التشغيل (API Key) غير متوفر. يرجى التأكد من إعدادات البيئة.");
+    if (!apiKey || apiKey === "undefined" || apiKey === "" || apiKey === "null") {
+      throw new Error("مفتاح التشغيل (API Key) غير متوفر. يرجى الذهاب إلى قائمة Settings في AI Studio والتأكد من إضافة GEMINI_API_KEY.");
     }
 
     const ai = new GoogleGenAI({ apiKey });
     const destCode = params.destination.code;
+    const isEn = params.language === 'en';
 
     const prompt = `
       **ROLE**: SENIOR GLOBAL VISA COMPLIANCE OFFICER.
@@ -87,29 +97,32 @@ export const getVisaRequirements = async (params: VisaRequestParams): Promise<Vi
       
       **APPLICANT**: ${params.origin.nameEn} (From: ${params.origin.nameAr})
       **DESTINATION**: ${params.destination.nameEn} (To: ${params.destination.nameAr})
+      **LANGUAGE**: ${isEn ? 'English' : 'Arabic'}
 
       **MANDATORY CATEGORIES**:
       You must provide a detailed breakdown for these 4 types EXACTLY ONCE. Do not repeat categories:
-      1. ✈️ **تأشيرة السياحة (Tourism Visa)**: General travel and sightseeing.
-      2. 💼 **تأشيرة الأعمال (Business Visa)**: Meetings, conferences, and investment.
-      3. 🎓 **تأشيرة الدراسة (Study Visa)**: Academic and language courses.
-      4. 🏥 **تأشيرة العلاج (Medical Visa)**: Treatment and medical checkups.
+      1. ✈️ ${isEn ? 'Tourism Visa' : 'تأشيرة السياحة (Tourism Visa)'}
+      2. 💼 ${isEn ? 'Business Visa' : 'تأشيرة الأعمال (Business Visa)'}
+      3. 🎓 ${isEn ? 'Study Visa' : 'تأشيرة الدراسة (Study Visa)'}
+      4. 🏥 ${isEn ? 'Medical Visa' : 'تأشيرة العلاج (Medical Visa)'}
 
       **STRICT PHOTO REQUIREMENTS**:
-      - For every visa type that requires a personal photo (الصورة الشخصية), you MUST specify the exact dimensions (e.g., 3.5x4.5 cm for Schengen, 2x2 inches for USA, etc.) and the background color (usually white).
+      - For every visa type that requires a personal photo, you MUST specify the exact dimensions and the background color.
       - Highlight these dimensions clearly within the "Required Documents" section.
 
       **STRICT FORMATTING**:
-      - Start each type with "### [Icon] [Arabic Title] ([English Title])".
+      - Start each type with "### [Icon] [Title]".
       - Within each type, include:
         - **Status**: (Current visa status).
         - **Required Documents**: (List documents, including PHOTO SIZES).
-        - **Translation Requirements (الأوراق المطلوب ترجمتها)**: Specify which documents must be translated (e.g., to English or the local language) and any certification requirements (Certified translation, Apostille, etc.).
-        - **Fees**: (Current fees).
+        - **Travel Checklist**: Provide a list of actionable items for the applicant to prepare (e.g., [ ] Book flight, [ ] Translate ID).
+        - **Translation Requirements**: Specify which documents must be translated and any certification requirements.
+        - **Fees**: (Current fees including service fees if applicable).
         - **Processing Time**: (Estimated duration).
-        - **Application Roadmap (خريطة خطوات التقديم)**: Provide a clear, step-by-step guide (1, 2, 3...) on how to apply, where to go (Embassy, VFS, TLS, etc.), and what happens during the process (Interview, Biometrics, etc.).
-      - If a country doesn't have a specific type (e.g. medical is part of tourism), state that.
-      - Use Arabic for all explanations.
+        - **Embassy Information**: Provide the address, phone number, and official website of the embassy or consulate in ${params.origin.nameEn}.
+        - **Detailed Application Process**: Provide a comprehensive, step-by-step guide (1, 2, 3...) on how to apply, from registration to passport collection.
+      - If a country doesn't have a specific type, state that.
+      - Use ${isEn ? 'English' : 'Arabic'} for all explanations.
       - Include the latest updates (ETIAS, digital visas).
 
       ${['FR', 'DE', 'IT', 'ES', 'AT', 'BE', 'NL', 'GR', 'CH'].includes(destCode) ? ETIAS_RULE : ''}
@@ -121,10 +134,11 @@ export const getVisaRequirements = async (params: VisaRequestParams): Promise<Vi
       ${destCode === 'US' ? US_RULE : ''}
       ${destCode === 'GB' ? UK_RULE : ''}
       ${destCode === 'CA' ? CANADA_RULE : ''}
+      ${destCode === 'BR' ? BRAZIL_RULE : ''}
     `;
 
     const response = await ai.models.generateContent({
-      model: 'gemini-flash-latest',
+      model: 'gemini-3-flash-preview',
       contents: prompt,
       config: {
         tools: [{ googleSearch: {} }],
@@ -151,10 +165,54 @@ export const getVisaRequirements = async (params: VisaRequestParams): Promise<Vi
   }
 };
 
+/**
+ * Chat with Gemini Pro for complex queries or general assistance.
+ */
+export const chatWithGemini = async (message: string, history: { role: string, parts: { text: string }[] }[] = []) => {
+  try {
+    const apiKey = process.env.GEMINI_API_KEY || process.env.API_KEY || (import.meta as any).env?.VITE_GEMINI_API_KEY;
+    const ai = new GoogleGenAI({ apiKey });
+    
+    // Use gemini-3.1-pro-preview for the chatbot with high thinking level
+    const chat = ai.chats.create({
+      model: "gemini-3.1-pro-preview",
+      config: {
+        systemInstruction: "You are an expert travel and visa assistant. Provide accurate, helpful, and up-to-date information. Use Google Search grounding when needed.",
+        thinkingConfig: { thinkingLevel: ThinkingLevel.HIGH },
+        tools: [{ googleSearch: {} }]
+      },
+      history: history
+    });
+
+    const response = await chat.sendMessage({ message });
+    return response.text || "لم يتم العثور على رد.";
+  } catch (error: any) {
+    console.error("Chat Error:", error);
+    throw new Error("فشل في الحصول على رد من المساعد الذكي.");
+  }
+};
+
+/**
+ * Fast response using Flash Lite.
+ */
+export const getFastResponse = async (prompt: string) => {
+  try {
+    const apiKey = process.env.GEMINI_API_KEY || process.env.API_KEY || (import.meta as any).env?.VITE_GEMINI_API_KEY;
+    const ai = new GoogleGenAI({ apiKey });
+    const response = await ai.models.generateContent({
+      model: 'gemini-3.1-flash-lite-preview',
+      contents: prompt,
+    });
+    return response.text || "لم يتم العثور على رد.";
+  } catch (error: any) {
+    throw new Error("فشل في الحصول على رد سريع.");
+  }
+};
+
 export const analyzeBankStatement = async (file: File): Promise<BankAnalysisResult> => {
   try {
-    const apiKey = process.env.GEMINI_API_KEY || process.env.API_KEY;
-    if (!apiKey || apiKey === "undefined" || apiKey === "") {
+    const apiKey = process.env.GEMINI_API_KEY || process.env.API_KEY || (import.meta as any).env?.VITE_GEMINI_API_KEY;
+    if (!apiKey || apiKey === "undefined" || apiKey === "" || apiKey === "null") {
       throw new Error("مفتاح التشغيل (API Key) غير متوفر.");
     }
     const ai = new GoogleGenAI({ apiKey });
@@ -187,7 +245,9 @@ export const analyzeBankStatement = async (file: File): Promise<BankAnalysisResu
         },
       },
     });
-    return JSON.parse(response.text.trim());
+    const text = response.text;
+    if (!text) throw new Error("لم يتم العثور على بيانات في التحليل.");
+    return JSON.parse(text.trim());
   } catch (error: any) {
     throw new Error("فشل في تحليل كشف الحساب.");
   }

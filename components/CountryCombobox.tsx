@@ -10,6 +10,7 @@ interface CountryComboboxProps {
   onSelect: (country: Country) => void;
   placeholder?: string;
   type?: 'origin' | 'destination';
+  language?: 'ar' | 'en';
 }
 
 const normalizeText = (text: string): string => {
@@ -45,7 +46,8 @@ const CountryCombobox: React.FC<CountryComboboxProps> = ({
   selectedCountry,
   onSelect,
   placeholder,
-  type = 'origin'
+  type = 'origin',
+  language = 'ar'
 }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
@@ -163,13 +165,17 @@ const CountryCombobox: React.FC<CountryComboboxProps> = ({
     };
   }, [selectedCountry, isOpen]);
 
-  const resolvedPlaceholder = placeholder || (type === 'origin' ? 'اختر دولة الجنسية / المغادرة' : 'اختر وجهة السفر المقصودة');
+  const resolvedPlaceholder = placeholder || (
+    language === 'ar' 
+      ? (type === 'origin' ? 'اختر دولة الجنسية / المغادرة' : 'اختر وجهة السفر المقصودة')
+      : (type === 'origin' ? 'Select country of citizenship / departure' : 'Select intended travel destination')
+  );
 
   return (
-    <div className="w-full relative group" ref={wrapperRef}>
+    <div className="w-full relative group" ref={wrapperRef} dir={language === 'ar' ? 'rtl' : 'ltr'}>
       <label 
         id={labelId}
-        className={`block text-[10px] font-black mb-1.5 uppercase tracking-widest ${selectedCountry ? 'text-slate-900 dark:text-slate-200' : 'text-slate-400 dark:text-slate-500'}`}
+        className={`block text-[10px] font-black mb-1.5 uppercase tracking-widest ${selectedCountry ? 'text-slate-900 dark:text-slate-200' : 'text-slate-400 dark:text-slate-500'} ${language === 'ar' ? 'text-right' : 'text-left'}`}
       >
         {label}
       </label>
@@ -183,24 +189,29 @@ const CountryCombobox: React.FC<CountryComboboxProps> = ({
         style={dynamicStyles}
         className={`
           w-full flex items-center justify-between 
-          bg-white dark:bg-slate-900 border rounded-2xl px-4 py-3 text-right min-h-[64px]
+          bg-white dark:bg-slate-900 border rounded-2xl px-4 py-3 min-h-[64px]
           transition-all duration-300 relative z-10 focus:outline-none
+          ${language === 'ar' ? 'text-right' : 'text-left'}
           ${!selectedCountry ? 'border-slate-200 dark:border-slate-800 hover:border-emerald-400' : 'border-2'}
         `}
       >
-        <span className="flex items-center gap-3 truncate text-right w-full">
+        <span className={`flex items-center gap-3 truncate w-full ${language === 'ar' ? 'text-right' : 'text-left'}`}>
           {selectedCountry ? (
             <>
               <div className="relative">
                 <span className="text-2xl drop-shadow-sm">{selectedCountry.flag}</span>
                 <div 
-                  className="absolute -bottom-1 -right-1 w-3 h-3 rounded-full border-2 border-white dark:border-slate-900 shadow-sm" 
+                  className={`absolute -bottom-1 ${language === 'ar' ? '-right-1' : '-left-1'} w-3 h-3 rounded-full border-2 border-white dark:border-slate-900 shadow-sm`} 
                   style={{ backgroundColor: selectedCountry.color }} 
                 />
               </div>
               <div className="flex flex-col items-start overflow-hidden">
-                <span className="font-bold text-slate-900 dark:text-white truncate">{selectedCountry.nameAr}</span>
-                <span className="text-[9px] text-slate-400 uppercase font-black" style={{ color: selectedCountry.color }}>{selectedCountry.nameEn}</span>
+                <span className="font-bold text-slate-900 dark:text-white truncate">
+                  {language === 'ar' ? selectedCountry.nameAr : selectedCountry.nameEn}
+                </span>
+                <span className="text-[9px] text-slate-400 uppercase font-black" style={{ color: selectedCountry.color }}>
+                  {language === 'ar' ? selectedCountry.nameEn : selectedCountry.nameAr}
+                </span>
               </div>
             </>
           ) : (
@@ -214,12 +225,12 @@ const CountryCombobox: React.FC<CountryComboboxProps> = ({
         <div className="absolute z-50 w-full mt-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-2xl overflow-hidden animate-in fade-in slide-in-from-top-2 duration-200">
           <div className="p-3 border-b border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/50">
             <div className="relative">
-              <Search className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+              <Search className={`absolute ${language === 'ar' ? 'right-3' : 'left-3'} top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400`} />
               <input
                 ref={inputRef}
                 type="text"
-                className="w-full pr-10 pl-10 py-2.5 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-sm outline-none focus:ring-2 focus:ring-emerald-500/20"
-                placeholder="ابحث باسم الدولة..."
+                className={`w-full ${language === 'ar' ? 'pr-10 pl-10' : 'pl-10 pr-10'} py-2.5 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-sm outline-none focus:ring-2 focus:ring-emerald-500/20`}
+                placeholder={language === 'ar' ? "ابحث باسم الدولة..." : "Search by country name..."}
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
               />
@@ -230,7 +241,7 @@ const CountryCombobox: React.FC<CountryComboboxProps> = ({
                     setSearchQuery('');
                     inputRef.current?.focus();
                   }}
-                  className="absolute left-3 top-1/2 -translate-y-1/2 p-1 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg transition-colors text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
+                  className={`absolute ${language === 'ar' ? 'left-3' : 'right-3'} top-1/2 -translate-y-1/2 p-1 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg transition-colors text-slate-400 hover:text-slate-600 dark:hover:text-slate-200`}
                 >
                   <X className="w-3.5 h-3.5" />
                 </button>
@@ -239,25 +250,32 @@ const CountryCombobox: React.FC<CountryComboboxProps> = ({
           </div>
           <ul id={listboxId} role="listbox" className="max-h-72 overflow-y-auto custom-scrollbar">
             {filteredCountries.length === 0 ? (
-              <li className="px-6 py-10 text-center text-slate-400 text-sm italic">لا توجد نتائج مطابقة</li>
+              <li className="px-6 py-10 text-center text-slate-400 text-sm italic">
+                {language === 'ar' ? 'لا توجد نتائج مطابقة' : 'No matching results'}
+              </li>
             ) : (
               filteredCountries.map((country) => (
                 <li key={country.code}>
                   <button
                     onClick={() => handleSelect(country)}
                     className={`
-                      w-full flex items-center justify-between px-4 py-3 text-right hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors
+                      w-full flex items-center justify-between px-4 py-3 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors
+                      ${language === 'ar' ? 'text-right' : 'text-left'}
                       ${selectedCountry?.code === country.code ? 'bg-slate-50 dark:bg-slate-800' : ''}
                     `}
                   >
                     <span className="flex items-center gap-3">
                       <div className="relative">
                         <span className="text-xl">{country.flag}</span>
-                        <div className="absolute -top-1 -left-1 w-2 h-2 rounded-full shadow-sm" style={{ backgroundColor: country.color }} />
+                        <div className={`absolute -top-1 ${language === 'ar' ? '-left-1' : '-right-1'} w-2 h-2 rounded-full shadow-sm`} style={{ backgroundColor: country.color }} />
                       </div>
                       <div className="flex flex-col items-start">
-                        <span className="text-sm font-bold text-slate-700 dark:text-slate-200">{country.nameAr}</span>
-                        <span className="text-[10px] text-slate-400 uppercase font-bold" style={{ color: `${country.color}CC` }}>{country.nameEn}</span>
+                        <span className="text-sm font-bold text-slate-700 dark:text-slate-200">
+                          {language === 'ar' ? country.nameAr : country.nameEn}
+                        </span>
+                        <span className="text-[10px] text-slate-400 uppercase font-bold" style={{ color: `${country.color}CC` }}>
+                          {language === 'ar' ? country.nameEn : country.nameAr}
+                        </span>
                       </div>
                     </span>
                     {selectedCountry?.code === country.code && <Check className="w-4 h-4" style={{ color: country.color }} />}

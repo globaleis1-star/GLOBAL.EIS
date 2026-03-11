@@ -1,0 +1,37 @@
+{
+  "entities": {
+    "ChatSession": {
+      "title": "Chat Session",
+      "description": "A conversation between a user and the AI assistant.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string", "description": "The UID of the user who owns this chat." },
+        "title": { "type": "string", "description": "A short summary or title for the chat." },
+        "createdAt": { "type": "string", "format": "date-time", "description": "When the chat was started." },
+        "updatedAt": { "type": "string", "format": "date-time", "description": "When the last message was sent." }
+      },
+      "required": ["userId", "createdAt", "updatedAt"]
+    },
+    "ChatMessage": {
+      "title": "Chat Message",
+      "description": "A single message in a chat session.",
+      "type": "object",
+      "properties": {
+        "role": { "type": "string", "enum": ["user", "model"], "description": "Who sent the message." },
+        "content": { "type": "string", "description": "The text content of the message." },
+        "timestamp": { "type": "string", "format": "date-time", "description": "When the message was sent." }
+      },
+      "required": ["role", "content", "timestamp"]
+    }
+  },
+  "firestore": {
+    "/chats/{chatId}": {
+      "schema": "ChatSession",
+      "description": "User chat sessions."
+    },
+    "/chats/{chatId}/messages/{messageId}": {
+      "schema": "ChatMessage",
+      "description": "Messages within a chat session."
+    }
+  }
+}
