@@ -32,9 +32,21 @@ export interface VisaInfoResponse {
  */
 export interface BankAnalysisResult {
   summaryAr: string;
+  summaryEn: string;
   riskLevel: 'Low' | 'Medium' | 'High';
+  readinessScore: number;
+  monthlyAverageIncome: number;
+  monthlyAverageExpenses: number;
+  closingBalance: number;
+  currency: string;
   findings: string[];
   recommendations: string[];
+  detectedPatterns: {
+    salaryDetected: boolean;
+    fundsParkingDetected: boolean;
+    stableBalance: boolean;
+    frequentTransfers: boolean;
+  };
 }
 
 export interface FavoriteVisa {

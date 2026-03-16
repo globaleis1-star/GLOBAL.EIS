@@ -95,6 +95,11 @@ export const getVisaRequirements = async (params: VisaRequestParams): Promise<Vi
       **ROLE**: SENIOR GLOBAL VISA COMPLIANCE OFFICER.
       **TASK**: Generate a structured visa requirement report with the latest updates.
       
+      **ACCURACY PROTOCOL**: 
+      - You MUST use the **googleSearch** tool to verify the current visa status, fees, and procedures from OFFICIAL GOVERNMENT PORTALS (e.g., official embassy websites, Ministry of Foreign Affairs, or official outsourcing partners like VFS Global, TLScontact, BLS International).
+      - If there are conflicting sources, prioritize the most recent official government announcement.
+      - Explicitly mention if a specific rule (like ETIAS or digital visa transitions) is currently active or has a future implementation date.
+
       **APPLICANT**: ${params.origin.nameEn} (From: ${params.origin.nameAr})
       **DESTINATION**: ${params.destination.nameEn} (To: ${params.destination.nameAr})
       **LANGUAGE**: ${isEn ? 'English' : 'Arabic'}
@@ -113,12 +118,14 @@ export const getVisaRequirements = async (params: VisaRequestParams): Promise<Vi
       **STRICT FORMATTING**:
       - Start each type with "### [Icon] [Title]".
       - Within each type, include:
+        - **Verification Status**: ✅ ${isEn ? 'Verified via Official Sources' : 'تم التحقق عبر المصادر الرسمية'}
         - **Status**: (Current visa status).
         - **Required Documents**: (List documents, including PHOTO SIZES).
         - **Travel Checklist**: Provide a list of actionable items for the applicant to prepare (e.g., [ ] Book flight, [ ] Translate ID).
         - **Translation Requirements**: Specify which documents must be translated and any certification requirements.
         - **Fees**: (Current fees including service fees if applicable).
         - **Processing Time**: (Estimated duration).
+        - **Official Portal**: Provide the DIRECT LINK to the official government visa application website.
         - **Embassy Information**: Provide the address, phone number, and official website of the embassy or consulate in ${params.origin.nameEn}.
         - **Detailed Application Process**: Provide a comprehensive, step-by-step guide (1, 2, 3...) on how to apply, from registration to passport collection.
       - If a country doesn't have a specific type, state that.
@@ -228,7 +235,20 @@ export const analyzeBankStatement = async (file: File): Promise<BankAnalysisResu
       contents: [{
         parts: [
           { inlineData: { data: base64Data, mimeType: file.type || 'image/jpeg' } },
-          { text: "Analyze this bank statement for a visa application. Check for Funds Parking and regular income. Result in Arabic JSON." }
+          { text: `
+            Analyze this bank statement for a visa application, with a special focus on UK Embassy (UKVI) standards. 
+            The UKVI is extremely strict about "Funds Parking" and "Source of Wealth".
+            
+            Perform a granular transaction-level audit:
+            1. **Income Consistency**: Match regular credits with declared salary/business income. Note any deviations.
+            2. **Funds Parking (UKVI Focus)**: Identify ANY large deposits that don't match the regular income pattern. These are high-risk for UK visas.
+            3. **Source of Funds**: Flag transactions that require documented evidence (e.g., large transfers from third parties).
+            4. **Affordability**: Compare the closing balance and monthly savings against the typical cost of a UK trip (approx £2000-£5000).
+            5. **Spending to Income Ratio**: Analyze if the lifestyle shown by expenses matches the declared income.
+            6. **Visa Readiness Score**: Provide a score from 0-100 specifically for a UK Standard Visitor Visa.
+            
+            Return the result in JSON format with detailed Arabic and English summaries.
+          ` }
         ]
       }],
       config: {
@@ -237,11 +257,27 @@ export const analyzeBankStatement = async (file: File): Promise<BankAnalysisResu
           type: Type.OBJECT,
           properties: {
             summaryAr: { type: Type.STRING },
-            riskLevel: { type: Type.STRING },
+            summaryEn: { type: Type.STRING },
+            riskLevel: { type: Type.STRING, enum: ["Low", "Medium", "High"] },
+            readinessScore: { type: Type.NUMBER },
+            monthlyAverageIncome: { type: Type.NUMBER },
+            monthlyAverageExpenses: { type: Type.NUMBER },
+            closingBalance: { type: Type.NUMBER },
+            currency: { type: Type.STRING },
             findings: { type: Type.ARRAY, items: { type: Type.STRING } },
-            recommendations: { type: Type.ARRAY, items: { type: Type.STRING } }
+            recommendations: { type: Type.ARRAY, items: { type: Type.STRING } },
+            detectedPatterns: {
+              type: Type.OBJECT,
+              properties: {
+                salaryDetected: { type: Type.BOOLEAN },
+                fundsParkingDetected: { type: Type.BOOLEAN },
+                stableBalance: { type: Type.BOOLEAN },
+                frequentTransfers: { type: Type.BOOLEAN }
+              },
+              required: ["salaryDetected", "fundsParkingDetected", "stableBalance", "frequentTransfers"]
+            }
           },
-          required: ["summaryAr", "riskLevel", "findings", "recommendations"],
+          required: ["summaryAr", "summaryEn", "riskLevel", "readinessScore", "monthlyAverageIncome", "monthlyAverageExpenses", "closingBalance", "currency", "findings", "recommendations", "detectedPatterns"],
         },
       },
     });

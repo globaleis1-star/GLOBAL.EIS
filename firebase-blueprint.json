@@ -1,37 +1,60 @@
 {
   "entities": {
-    "ChatSession": {
-      "title": "Chat Session",
-      "description": "A conversation between a user and the AI assistant.",
+    "UserProfile": {
+      "title": "User Profile",
+      "description": "Stores user profile information and preferences.",
       "type": "object",
       "properties": {
-        "userId": { "type": "string", "description": "The UID of the user who owns this chat." },
-        "title": { "type": "string", "description": "A short summary or title for the chat." },
-        "createdAt": { "type": "string", "format": "date-time", "description": "When the chat was started." },
-        "updatedAt": { "type": "string", "format": "date-time", "description": "When the last message was sent." }
+        "uid": { "type": "string", "description": "Unique identifier for the user." },
+        "displayName": { "type": "string", "description": "The user's display name." },
+        "email": { "type": "string", "description": "The user's email address." },
+        "photoURL": { "type": "string", "description": "URL to the user's profile photo." },
+        "language": { "type": "string", "enum": ["ar", "en"], "description": "User's preferred language." },
+        "theme": { "type": "string", "enum": ["light", "dark"], "description": "User's preferred theme." },
+        "createdAt": { "type": "string", "format": "date-time", "description": "When the profile was created." },
+        "updatedAt": { "type": "string", "format": "date-time", "description": "When the profile was last updated." }
       },
-      "required": ["userId", "createdAt", "updatedAt"]
+      "required": ["uid", "email"]
     },
-    "ChatMessage": {
-      "title": "Chat Message",
-      "description": "A single message in a chat session.",
+    "FavoriteVisa": {
+      "title": "Favorite Visa",
+      "description": "A visa requirement search saved by the user.",
       "type": "object",
       "properties": {
-        "role": { "type": "string", "enum": ["user", "model"], "description": "Who sent the message." },
-        "content": { "type": "string", "description": "The text content of the message." },
-        "timestamp": { "type": "string", "format": "date-time", "description": "When the message was sent." }
+        "id": { "type": "string", "description": "Unique ID for the favorite (e.g., originCode-destinationCode)." },
+        "uid": { "type": "string", "description": "The user who saved this favorite." },
+        "origin": { "type": "object", "description": "Origin country details." },
+        "destination": { "type": "object", "description": "Destination country details." },
+        "data": { "type": "object", "description": "The visa requirement data." },
+        "createdAt": { "type": "string", "format": "date-time", "description": "When it was saved." }
       },
-      "required": ["role", "content", "timestamp"]
+      "required": ["id", "uid", "origin", "destination", "data"]
+    },
+    "RecentSearch": {
+      "title": "Recent Search",
+      "description": "A recent visa search performed by the user.",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string", "description": "The user who performed the search." },
+        "originCode": { "type": "string", "description": "Origin country code." },
+        "destinationCode": { "type": "string", "description": "Destination country code." },
+        "date": { "type": "string", "format": "date-time", "description": "When the search was performed." }
+      },
+      "required": ["uid", "originCode", "destinationCode", "date"]
     }
   },
   "firestore": {
-    "/chats/{chatId}": {
-      "schema": "ChatSession",
-      "description": "User chat sessions."
+    "/users/{uid}": {
+      "schema": "UserProfile",
+      "description": "Collection of user profiles."
     },
-    "/chats/{chatId}/messages/{messageId}": {
-      "schema": "ChatMessage",
-      "description": "Messages within a chat session."
+    "/users/{uid}/favorites/{favoriteId}": {
+      "schema": "FavoriteVisa",
+      "description": "User's saved favorite visa requirements."
+    },
+    "/users/{uid}/recentSearches/{searchId}": {
+      "schema": "RecentSearch",
+      "description": "User's recent visa searches."
     }
   }
 }

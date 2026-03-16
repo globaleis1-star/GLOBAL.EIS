@@ -5,7 +5,7 @@ import remarkGfm from 'remark-gfm';
 import { VisaInfoResponse, Country, BankAnalysisResult, FavoriteVisa } from '../types';
 import { analyzeBankStatement } from '../services/geminiService';
 // Added missing icons ArrowLeftRight and Sparkles to the lucide-react import list
-import { AlertCircle, RefreshCw, Loader2, CheckCircle2, AlertTriangle, Info, Smartphone, Globe, Plane, Briefcase, GraduationCap, HeartPulse, ArrowLeftRight, Sparkles, MapPin, Phone, ExternalLink, Bell, Bookmark, BookmarkCheck } from 'lucide-react';
+import { AlertCircle, RefreshCw, Loader2, CheckCircle2, AlertTriangle, Info, Smartphone, Globe, Plane, Briefcase, GraduationCap, HeartPulse, ArrowLeftRight, Sparkles, MapPin, Phone, ExternalLink, Bell, Bookmark, BookmarkCheck, ShieldCheck, MessageCircle } from 'lucide-react';
 import { EXCHANGE_RATES, COUNTRIES } from '../constants';
 import IconManager from './IconManager';
 
@@ -149,11 +149,18 @@ const VisaResult: React.FC<VisaResultProps> = ({ data, origin, destination, onRe
           <h2 className="text-2xl font-black text-slate-900 dark:text-white">
             {language === 'ar' ? 'تفاصيل التأشيرات المحدثة' : 'Updated Visa Details'}
           </h2>
-          <p className="text-slate-50 text-xs mt-1">
-            {language === 'ar' 
-              ? `المغادرة من ${origin.nameAr} إلى ${destination.nameAr}`
-              : `Departure from ${origin.nameEn} to ${destination.nameEn}`}
-          </p>
+          <div className="flex flex-col sm:flex-row sm:items-center gap-2 mt-1">
+            <p className="text-slate-500 text-xs">
+              {language === 'ar' 
+                ? `المغادرة من ${origin.nameAr} إلى ${destination.nameAr}`
+                : `Departure from ${origin.nameEn} to ${destination.nameEn}`}
+            </p>
+            <span className="hidden sm:inline text-slate-300">•</span>
+            <div className="flex items-center gap-1 text-[10px] font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/20 px-2 py-0.5 rounded-full border border-emerald-100 dark:border-emerald-800">
+              <ShieldCheck className="w-3 h-3" />
+              {language === 'ar' ? 'تم التحقق:' : 'Verified:'} {new Date(data.generatedAt).toLocaleDateString(language === 'ar' ? 'ar-EG' : 'en-US')}
+            </div>
+          </div>
         </div>
         <div className="flex items-center gap-2">
           <button 
@@ -166,6 +173,15 @@ const VisaResult: React.FC<VisaResultProps> = ({ data, origin, destination, onRe
             title={language === 'ar' ? (isFavorite ? 'إزالة من المفضلة' : 'حفظ في المفضلة') : (isFavorite ? 'Remove from Favorites' : 'Save to Favorites')}
           >
             {isFavorite ? <BookmarkCheck className="w-5 h-5" /> : <Bookmark className="w-5 h-5" />}
+          </button>
+          <button 
+            onClick={() => {
+              window.dispatchEvent(new CustomEvent('toggle-chatbot'));
+            }}
+            className="p-3 rounded-2xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-400 hover:text-emerald-500 transition-all active:scale-95 shadow-sm"
+            title={language === 'ar' ? 'اسأل الذكاء الاصطناعي' : 'Ask AI'}
+          >
+            <MessageCircle className="w-5 h-5" />
           </button>
           <button onClick={onRefresh} className="p-3 rounded-2xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-400 hover:text-emerald-500 transition-all active:scale-95 shadow-sm">
             <RefreshCw className="w-5 h-5" />
@@ -235,16 +251,29 @@ const VisaResult: React.FC<VisaResultProps> = ({ data, origin, destination, onRe
         <CurrencyConverter origin={origin} destination={destination} language={language} />
       </div>
 
-      {/* Sources & Links */}
+      {/* Verification Mechanism & Sources */}
       {data.sources && data.sources.length > 0 && (
         <div className="mt-10 bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 overflow-hidden shadow-sm">
-          <div className="bg-slate-50 dark:bg-slate-800/50 px-6 py-4 border-b border-slate-100 dark:border-slate-800 flex items-center gap-2">
-            <Globe className="w-5 h-5 text-blue-600" />
-            <h3 className="font-bold text-slate-800 dark:text-slate-200 text-sm">
-              {language === 'ar' ? 'المصادر والروابط الهامة' : 'Important Sources & Links'}
-            </h3>
+          <div className="bg-slate-50 dark:bg-slate-800/50 px-6 py-4 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <ShieldCheck className="w-5 h-5 text-emerald-600" />
+              <h3 className="font-bold text-slate-800 dark:text-slate-200 text-sm">
+                {language === 'ar' ? 'آلية التحقق والمصادر الرسمية' : 'Verification Mechanism & Official Sources'}
+              </h3>
+            </div>
+            <div className="flex items-center gap-1 px-2 py-1 bg-emerald-100 dark:bg-emerald-900/30 rounded-lg">
+              <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+              <span className="text-[10px] font-bold text-emerald-700 dark:text-emerald-400">
+                {language === 'ar' ? 'بيانات حية' : 'Live Data'}
+              </span>
+            </div>
           </div>
           <div className="p-6">
+            <p className="text-xs text-slate-500 dark:text-slate-400 mb-4 leading-relaxed">
+              {language === 'ar' 
+                ? 'يتم جلب هذه البيانات ودمجها لحظياً من خلال البحث في المواقع الحكومية الرسمية وقواعد بيانات التأشيرات العالمية لضمان أعلى مستويات الدقة.'
+                : 'This data is fetched and synthesized in real-time by searching official government websites and global visa databases to ensure the highest level of accuracy.'}
+            </p>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               {data.sources.map((source, idx) => (
                 <a 
@@ -252,10 +281,10 @@ const VisaResult: React.FC<VisaResultProps> = ({ data, origin, destination, onRe
                   href={source.url} 
                   target="_blank" 
                   rel="noopener noreferrer"
-                  className="flex items-center gap-3 p-3 rounded-2xl bg-slate-50 dark:bg-slate-800/30 border border-slate-100 dark:border-slate-800 hover:border-blue-500/50 hover:bg-blue-50 dark:hover:bg-blue-900/10 transition-all group"
+                  className="flex items-center gap-3 p-3 rounded-2xl bg-slate-50 dark:bg-slate-800/30 border border-slate-100 dark:border-slate-800 hover:border-emerald-500/50 hover:bg-emerald-50 dark:hover:bg-emerald-900/10 transition-all group"
                 >
-                  <div className="p-2 rounded-xl bg-white dark:bg-slate-800 text-slate-400 group-hover:text-blue-600 shadow-sm">
-                    <Globe className="w-4 h-4" />
+                  <div className="p-2 rounded-xl bg-white dark:bg-slate-800 text-slate-400 group-hover:text-emerald-600 shadow-sm">
+                    <ExternalLink className="w-4 h-4" />
                   </div>
                   <div className="flex-1 min-w-0">
                     <p className="text-xs font-bold text-slate-700 dark:text-slate-200 truncate">{source.title}</p>
@@ -361,24 +390,73 @@ const BankStatementAnalyzer: React.FC<{ language: 'ar' | 'en' }> = ({ language }
       </div>
       {result && (
         <div className="p-6 bg-slate-50/50 dark:bg-slate-900/50 animate-in fade-in">
-          <div className={`mb-4 inline-block px-3 py-1 rounded-full text-[10px] font-bold border ${result.riskLevel === 'Low' ? 'bg-emerald-50 text-emerald-600 border-emerald-100' : 'bg-rose-50 text-rose-600 border-rose-100'}`}>
-            {language === 'ar' ? 'مخاطرة:' : 'Risk:'} {result.riskLevel === 'Low' ? (language === 'ar' ? 'منخفضة' : 'Low') : (language === 'ar' ? 'مرتفعة' : 'High')}
+          <div className="flex flex-wrap items-center gap-3 mb-6">
+            <div className={`px-3 py-1 rounded-full text-[10px] font-bold border ${result.riskLevel === 'Low' ? 'bg-emerald-50 text-emerald-600 border-emerald-100' : result.riskLevel === 'Medium' ? 'bg-amber-50 text-amber-600 border-amber-100' : 'bg-rose-50 text-rose-600 border-rose-100'}`}>
+              {language === 'ar' ? 'مستوى المخاطرة:' : 'Risk Level:'} {result.riskLevel === 'Low' ? (language === 'ar' ? 'منخفض' : 'Low') : result.riskLevel === 'Medium' ? (language === 'ar' ? 'متوسط' : 'Medium') : (language === 'ar' ? 'مرتفع' : 'High')}
+            </div>
+            <div className="flex items-center gap-2 px-3 py-1 rounded-full bg-indigo-50 dark:bg-indigo-900/30 border border-indigo-100 dark:border-indigo-800 text-[10px] font-bold text-indigo-600 dark:text-indigo-400">
+              <Sparkles className="w-3 h-3" />
+              {language === 'ar' ? 'درجة الجاهزية:' : 'Readiness Score:'} {result.readinessScore}/100
+            </div>
           </div>
-          <p className={`text-xs text-slate-600 dark:text-slate-400 mb-4 ${language === 'ar' ? 'text-right' : 'text-left'}`}>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+            <div className="bg-white dark:bg-slate-800 p-4 rounded-2xl border border-slate-100 dark:border-slate-700 shadow-sm">
+              <p className="text-[10px] text-slate-400 font-bold uppercase mb-1">{language === 'ar' ? 'متوسط الدخل' : 'Avg. Income'}</p>
+              <p className="text-lg font-black text-emerald-600">{result.monthlyAverageIncome.toLocaleString()} <span className="text-[10px]">{result.currency}</span></p>
+            </div>
+            <div className="bg-white dark:bg-slate-800 p-4 rounded-2xl border border-slate-100 dark:border-slate-700 shadow-sm">
+              <p className="text-[10px] text-slate-400 font-bold uppercase mb-1">{language === 'ar' ? 'متوسط المصاريف' : 'Avg. Expenses'}</p>
+              <p className="text-lg font-black text-rose-600">{result.monthlyAverageExpenses.toLocaleString()} <span className="text-[10px]">{result.currency}</span></p>
+            </div>
+            <div className="bg-white dark:bg-slate-800 p-4 rounded-2xl border border-slate-100 dark:border-slate-700 shadow-sm">
+              <p className="text-[10px] text-slate-400 font-bold uppercase mb-1">{language === 'ar' ? 'الرصيد الختامي' : 'Closing Balance'}</p>
+              <p className="text-lg font-black text-indigo-600">{result.closingBalance.toLocaleString()} <span className="text-[10px]">{result.currency}</span></p>
+            </div>
+          </div>
+
+          <div className="flex flex-wrap gap-2 mb-6">
+            {result.detectedPatterns.salaryDetected && (
+              <div className="flex items-center gap-1.5 px-2 py-1 rounded-lg bg-emerald-50 dark:bg-emerald-900/20 text-[10px] font-bold text-emerald-600">
+                <CheckCircle2 className="w-3 h-3" /> {language === 'ar' ? 'تم رصد راتب منتظم' : 'Regular Salary Detected'}
+              </div>
+            )}
+            {result.detectedPatterns.fundsParkingDetected && (
+              <div className="flex items-center gap-1.5 px-2 py-1 rounded-lg bg-rose-50 dark:bg-rose-900/20 text-[10px] font-bold text-rose-600">
+                <AlertTriangle className="w-3 h-3" /> {language === 'ar' ? 'رصد إيداعات ضخمة مفاجئة' : 'Funds Parking Detected'}
+              </div>
+            )}
+            {result.detectedPatterns.stableBalance ? (
+              <div className="flex items-center gap-1.5 px-2 py-1 rounded-lg bg-blue-50 dark:bg-blue-900/20 text-[10px] font-bold text-blue-600">
+                <TrendingUp className="w-3 h-3" /> {language === 'ar' ? 'رصيد مستقر/متنامي' : 'Stable/Growing Balance'}
+              </div>
+            ) : (
+              <div className="flex items-center gap-1.5 px-2 py-1 rounded-lg bg-amber-50 dark:bg-amber-900/20 text-[10px] font-bold text-amber-600">
+                <TrendingUp className="w-3 h-3 rotate-180" /> {language === 'ar' ? 'رصيد متناقص' : 'Depleting Balance'}
+              </div>
+            )}
+          </div>
+
+          <p className={`text-xs text-slate-600 dark:text-slate-400 mb-6 leading-relaxed p-4 bg-white dark:bg-slate-800 rounded-2xl border border-slate-100 dark:border-slate-700 ${language === 'ar' ? 'text-right' : 'text-left'}`}>
             {language === 'ar' ? result.summaryAr : result.summaryEn}
           </p>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-             <div className="space-y-1">
-                <span className="text-[10px] font-bold text-slate-400 uppercase">
-                  {language === 'ar' ? 'الملاحظات:' : 'Findings:'}
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+             <div className="space-y-2">
+                <span className="text-[10px] font-bold text-slate-400 uppercase flex items-center gap-2">
+                  <Info className="w-3 h-3" /> {language === 'ar' ? 'الملاحظات التحليلية:' : 'Analytical Findings:'}
                 </span>
-                {result.findings.map((f, i) => <div key={i} className={`text-[10px] text-slate-600 dark:text-slate-300 bg-white dark:bg-slate-800 p-2 rounded-lg ${language === 'ar' ? 'text-right' : 'text-left'}`}>• {f}</div>)}
+                <div className="space-y-2">
+                  {result.findings.map((f, i) => <div key={i} className={`text-[10px] text-slate-600 dark:text-slate-300 bg-white dark:bg-slate-800/50 p-3 rounded-xl border border-slate-100 dark:border-slate-800 ${language === 'ar' ? 'text-right' : 'text-left'}`}>• {f}</div>)}
+                </div>
              </div>
-             <div className="space-y-1">
-                <span className="text-[10px] font-bold text-slate-400 uppercase">
-                  {language === 'ar' ? 'التوصيات:' : 'Recommendations:'}
+             <div className="space-y-2">
+                <span className="text-[10px] font-bold text-slate-400 uppercase flex items-center gap-2">
+                  <CheckCircle2 className="w-3 h-3" /> {language === 'ar' ? 'توصيات الخبراء:' : 'Expert Recommendations:'}
                 </span>
-                {result.recommendations.map((r, i) => <div key={i} className={`text-[10px] text-emerald-600 dark:text-emerald-400 bg-emerald-50/50 dark:bg-emerald-900/20 p-2 rounded-lg ${language === 'ar' ? 'text-right' : 'text-left'}`}>✓ {r}</div>)}
+                <div className="space-y-2">
+                  {result.recommendations.map((r, i) => <div key={i} className={`text-[10px] text-emerald-600 dark:text-emerald-400 bg-emerald-50/30 dark:bg-emerald-900/10 p-3 rounded-xl border border-emerald-100/50 dark:border-emerald-900/30 ${language === 'ar' ? 'text-right' : 'text-left'}`}>✓ {r}</div>)}
+                </div>
              </div>
           </div>
         </div>

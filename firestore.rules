@@ -1,24 +1,43 @@
-
-// ===============================================================
-// Assumed Data Model
-// ===============================================================
-//
-// This security rules file assumes the following data structures:
-//
-// Collection: users
-// Document ID: {userId}
-// Fields:
-//   - uid: string (required) - The unique ID of the user
-//   - email: string (optional) - User's email address
-//   - displayName: string (optional) - User's display name
-//   - role: string (required) - User role (default: 'user')
-//
-// ===============================================================
-
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
     
+    // ===============================================================
+    // Assumed Data Model
+    // ===============================================================
+    //
+    // Collection: users
+    // Document ID: {uid}
+    // Fields:
+    //   - uid: string (required)
+    //   - displayName: string (optional)
+    //   - email: string (required)
+    //   - photoURL: string (optional)
+    //   - language: string (ar|en)
+    //   - theme: string (light|dark)
+    //   - createdAt: timestamp
+    //   - updatedAt: timestamp
+    //
+    // Collection: users/{uid}/favorites
+    // Document ID: {favoriteId}
+    // Fields:
+    //   - id: string (required)
+    //   - uid: string (required)
+    //   - origin: map (required)
+    //   - destination: map (required)
+    //   - data: map (required)
+    //   - createdAt: timestamp
+    //
+    // Collection: users/{uid}/recentSearches
+    // Document ID: {searchId}
+    // Fields:
+    //   - uid: string (required)
+    //   - originCode: string (required)
+    //   - destinationCode: string (required)
+    //   - date: timestamp
+    //
+    // ===============================================================
+
     // ===============================================================
     // Helper Functions
     // ===============================================================
@@ -26,49 +45,68 @@ service cloud.firestore {
     function isAuthenticated() {
       return request.auth != null;
     }
-    
+
     function isOwner(userId) {
       return isAuthenticated() && request.auth.uid == userId;
     }
-    
-    function isAdmin() {
-      return isAuthenticated() && 
-        ((exists(/databases/$(database)/documents/users/$(request.auth.uid)) && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin') ||
-         (request.auth.token.email == "globaleis1@gmail.com" && request.auth.token.email_verified == true));
+
+    function isValidEmail(email) {
+      return email is string && email.matches("^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$");
     }
 
-    function isValidUser(data) {
-      return data.keys().hasAll(['uid', 'role']) &&
-             data.uid is string &&
-             data.role in ['user', 'admin'];
+    function hasOnlyAllowedFields(fields) {
+      return request.resource.data.keys().hasOnly(fields);
+    }
+
+    // ===============================================================
+    // Domain Validators
+    // ===============================================================
+
+    function isValidUserProfile(data) {
+      return hasOnlyAllowedFields(['uid', 'displayName', 'email', 'photoURL', 'language', 'theme', 'createdAt', 'updatedAt']) &&
+             data.uid == request.auth.uid &&
+             data.email is string && isValidEmail(data.email) &&
+             (data.language == 'ar' || data.language == 'en') &&
+             (data.theme == 'light' || data.theme == 'dark');
+    }
+
+    function isValidFavorite(data) {
+      return hasOnlyAllowedFields(['id', 'uid', 'origin', 'destination', 'data', 'createdAt']) &&
+             data.uid == request.auth.uid &&
+             data.id is string &&
+             data.origin is map &&
+             data.destination is map &&
+             data.data is map;
+    }
+
+    function isValidRecentSearch(data) {
+      return hasOnlyAllowedFields(['uid', 'originCode', 'destinationCode', 'date']) &&
+             data.uid == request.auth.uid &&
+             data.originCode is string &&
+             data.destinationCode is string;
     }
 
     // ===============================================================
     // Rules
     // ===============================================================
 
-    match /users/{userId} {
-      allow read: if isOwner(userId) || isAdmin();
-      allow create: if isAuthenticated() && isOwner(userId) && isValidUser(request.resource.data) && request.resource.data.role == 'user';
-      allow update: if isAuthenticated() && isOwner(userId) && isValidUser(request.resource.data) && request.resource.data.role == resource.data.role;
-      allow delete: if isAdmin();
-    }
+    match /users/{uid} {
+      allow read: if isOwner(uid);
+      allow create: if isOwner(uid) && isValidUserProfile(request.resource.data);
+      allow update: if isOwner(uid) && isValidUserProfile(request.resource.data);
 
-    match /chats/{chatId} {
-      allow read: if isAuthenticated() && resource.data.userId == request.auth.uid;
-      allow create: if isAuthenticated() && request.resource.data.userId == request.auth.uid;
-      allow update: if isAuthenticated() && resource.data.userId == request.auth.uid && request.resource.data.userId == request.auth.uid;
-      allow delete: if isAuthenticated() && resource.data.userId == request.auth.uid;
-
-      match /messages/{messageId} {
-        allow read: if isAuthenticated() && get(/databases/$(database)/documents/chats/$(chatId)).data.userId == request.auth.uid;
-        allow create: if isAuthenticated() && get(/databases/$(database)/documents/chats/$(chatId)).data.userId == request.auth.uid;
+      match /favorites/{favoriteId} {
+        allow read: if isOwner(uid);
+        allow create: if isOwner(uid) && isValidFavorite(request.resource.data);
+        allow update: if isOwner(uid) && isValidFavorite(request.resource.data);
+        allow delete: if isOwner(uid);
       }
-    }
 
-    // Default deny
-    match /{document=**} {
-      allow read, write: if false;
+      match /recentSearches/{searchId} {
+        allow read: if isOwner(uid);
+        allow create: if isOwner(uid) && isValidRecentSearch(request.resource.data);
+        allow delete: if isOwner(uid);
+      }
     }
   }
 }

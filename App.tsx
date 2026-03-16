@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { motion } from 'motion/react';
-import { ArrowLeft, Sparkles, X, CloudOff, Moon, Sun, RotateCcw, Globe2, TrendingUp, Share2, CheckCircle2, Loader2, Bookmark, ShieldCheck } from 'lucide-react';
+import { ArrowLeft, Sparkles, X, CloudOff, Moon, Sun, RotateCcw, Globe2, TrendingUp, Share2, CheckCircle2, Loader2, Bookmark, ShieldCheck, MessageCircle } from 'lucide-react';
 import { COUNTRIES } from './constants';
 import { Country, VisaInfoResponse, FavoriteVisa } from './types';
 import { getVisaRequirements } from './services/geminiService';
@@ -13,7 +13,9 @@ import ErrorBoundary from './components/ErrorBoundary';
 import FAQSection from './components/FAQSection';
 import ChatBot from './src/components/ChatBot';
 import { useAuth } from './src/context/AuthContext';
-import ReCAPTCHA from "react-google-recaptcha";
+import { AlertTriangle } from 'lucide-react';
+import { db } from './src/firebase';
+import { collection, addDoc, query, where, onSnapshot, deleteDoc, doc, setDoc, serverTimestamp, orderBy, limit } from 'firebase/firestore';
 
 const Spinner = ({ className = "w-5 h-5" }: { className?: string }) => (
   <svg className={`animate-spin ${className}`} xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
@@ -178,7 +180,7 @@ const FeaturedDestinationCard: React.FC<{
 };
 
 const App: React.FC = () => {
-  const { loading: authLoading } = useAuth();
+  const { user, loading: authLoading, logout } = useAuth();
   const [origin, setOrigin] = useState<Country | null>(null);
   const [destination, setDestination] = useState<Country | null>(null);
   const [loading, setLoading] = useState(false);
@@ -193,9 +195,6 @@ const App: React.FC = () => {
   const [recentSearches, setRecentSearches] = useState<{origin: string, destination: string, date: string}[]>([]);
   const [favorites, setFavorites] = useState<FavoriteVisa[]>([]);
   const [language, setLanguage] = useState<'ar' | 'en'>('ar');
-  const [recaptchaToken, setRecaptchaToken] = useState<string | null>(null);
-  const recaptchaRef = useRef<ReCAPTCHA>(null);
-  const recaptchaSiteKey = import.meta.env.VITE_RECAPTCHA_SITE_KEY;
 
   useEffect(() => {
     const savedLang = localStorage.getItem('app_language');
@@ -425,16 +424,7 @@ const App: React.FC = () => {
 
   const handleSearch = () => {
     if (!origin || !destination) return;
-    if (!recaptchaToken) {
-      setError(language === 'ar' ? 'يرجى إكمال التحقق من "أنا لست روبوت" أولاً' : 'Please complete the "I am not a robot" verification first');
-      return;
-    }
     handleSearchInternal(origin, destination);
-    // Reset recaptcha after search
-    if (recaptchaRef.current) {
-      recaptchaRef.current.reset();
-      setRecaptchaToken(null);
-    }
   };
 
   const handleReset = () => {
@@ -458,7 +448,7 @@ const App: React.FC = () => {
     });
   };
 
-  const isFormValid = origin && destination && origin.code !== destination.code && recaptchaToken;
+  const isFormValid = origin && destination && origin.code !== destination.code;
 
   if (authLoading) {
     return (
@@ -504,6 +494,17 @@ const App: React.FC = () => {
              </button>
              <button 
                type="button"
+                onClick={() => {
+                  window.dispatchEvent(new CustomEvent('toggle-chatbot'));
+                }}
+                className="p-2.5 rounded-xl text-slate-500 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800 transition-all flex items-center gap-2 active:scale-95 group/chat"
+                title={language === 'ar' ? 'تحدث مع الذكاء الاصطناعي' : 'Chat with AI'}
+              >
+                <MessageCircle className="w-5 h-5 group-hover/chat:text-emerald-500 transition-colors" />
+                <span className="text-xs font-bold hidden md:block">{language === 'ar' ? 'المساعد الذكي' : 'AI Chat'}</span>
+              </button>
+              <button 
+                type="button"
                onClick={toggleTheme}
                className="p-2.5 rounded-xl text-slate-500 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800 transition-colors active:scale-95"
                title={theme === 'light' ? (language === 'ar' ? 'داكن' : 'Dark') : (language === 'ar' ? 'فاتح' : 'Light')}
@@ -600,46 +601,6 @@ const App: React.FC = () => {
             </div>
           </div>
           
-          <div className="mt-6 flex flex-col items-center gap-3">
-            {!recaptchaSiteKey && (
-              <div className="p-3 bg-rose-50 dark:bg-rose-900/20 border border-rose-100 dark:border-rose-800 rounded-xl flex items-center gap-3 mb-2">
-                <AlertTriangle className="w-5 h-5 text-rose-600" />
-                <p className="text-xs font-bold text-rose-700 dark:text-rose-400">
-                  {language === 'ar' 
-                    ? 'تنبيه للمطور: مفتاح reCAPTCHA غير متوفر. يرجى إضافته في إعدادات البيئة (VITE_RECAPTCHA_SITE_KEY).'
-                    : 'Developer Alert: reCAPTCHA Site Key is missing. Please add it to environment variables (VITE_RECAPTCHA_SITE_KEY).'}
-                </p>
-              </div>
-            )}
-            
-            <ReCAPTCHA
-              ref={recaptchaRef}
-              sitekey={recaptchaSiteKey || "6LeIxAcTAAAAAJcZVRqyHh71UMIEGNQ_MXjiZKhI"}
-              onChange={(token) => {
-                setRecaptchaToken(token);
-                if (token) {
-                  // Optional: show a small success toast or message
-                  console.log("reCAPTCHA verified");
-                }
-              }}
-              onExpired={() => setRecaptchaToken(null)}
-              theme={theme}
-              hl={language}
-            />
-            
-            {recaptchaToken && (
-              <div className="flex items-center gap-2 text-emerald-600 dark:text-emerald-400 text-xs font-bold animate-in fade-in zoom-in duration-300">
-                <CheckCircle2 className="w-4 h-4" />
-                {language === 'ar' ? 'تم التحقق بنجاح' : 'Verified Successfully'}
-              </div>
-            )}
-            
-            <p className="text-[10px] text-slate-400 flex items-center gap-1">
-              <ShieldCheck className="w-3 h-3" />
-              {language === 'ar' ? 'محمي بواسطة Google reCAPTCHA' : 'Protected by Google reCAPTCHA'}
-            </p>
-          </div>
-
           <div className="mt-8 flex flex-col sm:flex-row items-center justify-center gap-4">
             <button 
               type="button" 
@@ -654,17 +615,6 @@ const App: React.FC = () => {
               )}
             </button>
             
-            {!isFormValid && !loading && (
-              <p className="text-[10px] text-slate-400 mt-2">
-                {!origin || !destination 
-                  ? (language === 'ar' ? '* يرجى اختيار الدول أولاً' : '* Please select countries first')
-                  : origin.code === destination.code
-                    ? (language === 'ar' ? '* لا يمكن اختيار نفس الدولة' : '* Cannot select the same country')
-                    : !recaptchaToken
-                      ? (language === 'ar' ? '* يرجى تأكيد أنك لست روبوت' : '* Please confirm you are not a robot')
-                      : ''}
-              </p>
-            )}
             {result && (
               <button 
                 type="button" 

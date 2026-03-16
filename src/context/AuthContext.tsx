@@ -30,7 +30,6 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  // Mock user to bypass login requirement
   const [user, setUser] = useState<User | null>({
     uid: 'guest-user',
     displayName: 'زائر',
@@ -52,29 +51,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [authError, setAuthError] = useState<string | null>(null);
 
   useEffect(() => {
-    // We no longer need the Firebase auth listener for a "no-login" app
     setLoading(false);
   }, []);
 
-  const loginWithGoogle = async () => {
-    // Do nothing
-  };
-
-  const loginWithFacebook = async () => {
-    // Do nothing
-  };
-
-  const loginWithApple = async () => {
-    // Do nothing
-  };
-
-  const loginWithMicrosoft = async () => {
-    // Do nothing
-  };
-
-  const logout = async () => {
-    // Do nothing
-  };
+  const loginWithGoogle = async () => {};
+  const loginWithFacebook = async () => {};
+  const loginWithApple = async () => {};
+  const loginWithMicrosoft = async () => {};
+  const logout = async () => {};
 
   return (
     <AuthContext.Provider value={{ 

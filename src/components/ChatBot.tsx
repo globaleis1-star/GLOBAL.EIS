@@ -20,6 +20,12 @@ const ChatBot: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
+  useEffect(() => {
+    const handleToggle = () => setIsOpen(prev => !isOpen);
+    window.addEventListener('toggle-chatbot', handleToggle);
+    return () => window.removeEventListener('toggle-chatbot', handleToggle);
+  }, [isOpen]);
+
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   };
@@ -47,11 +53,10 @@ const ChatBot: React.FC = () => {
     }
   }, [messages]);
 
-  const handleSend = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!input.trim() || loading) return;
+  const sendMessage = async (text: string) => {
+    if (!text.trim() || loading) return;
 
-    const userMessageContent = input.trim();
+    const userMessageContent = text.trim();
     const userMessage: Message = {
       id: Date.now().toString(),
       role: 'user',
@@ -84,6 +89,11 @@ const ChatBot: React.FC = () => {
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleSend = async (e: React.FormEvent) => {
+    e.preventDefault();
+    sendMessage(input);
   };
 
   const clearChat = () => {
@@ -137,7 +147,24 @@ const ChatBot: React.FC = () => {
               {messages.length === 0 && !loading && (
                 <div className="h-full flex flex-col items-center justify-center text-center p-6 text-slate-400">
                   <Bot className="w-12 h-12 mb-4 opacity-20" />
-                  <p className="text-sm">مرحباً بك! كيف يمكنني مساعدتك اليوم في استفسارات السفر والتأشيرات؟</p>
+                  <p className="text-sm mb-6">مرحباً بك! كيف يمكنني مساعدتك اليوم في استفسارات السفر والتأشيرات؟</p>
+                  
+                  <div className="grid grid-cols-1 gap-2 w-full max-w-[280px]">
+                    {[
+                      'ما هي متطلبات تأشيرة شنغن؟',
+                      'كيف أحجز موعداً في VFS؟',
+                      'ما هي الأوراق المطلوبة لتركيا؟',
+                      'كم تبلغ رسوم تأشيرة أمريكا؟'
+                    ].map((q, i) => (
+                      <button
+                        key={i}
+                        onClick={() => sendMessage(q)}
+                        className="text-[10px] p-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl hover:border-emerald-500 dark:hover:border-emerald-500 transition-all text-slate-600 dark:text-slate-300"
+                      >
+                        {q}
+                      </button>
+                    ))}
+                  </div>
                 </div>
               )}
               {messages.map((msg) => (
